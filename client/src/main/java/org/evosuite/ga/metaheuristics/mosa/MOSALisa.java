@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
@@ -240,6 +241,9 @@ public class MOSALisa extends AbstractMOSA {
 
 
             if (totalStalls >= 30) {
+                LinkedHashMap<TestFitnessFunction, Double> rankedGoals = new LinkedHashMap<TestFitnessFunction, Double>();
+                rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
+                System.out.println("LOW FITNESS BRANCHES: " + rankedGoals);
                 System.out.println("INVOKE GPT");
                 totalStalls = 0;
             }

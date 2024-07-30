@@ -543,4 +543,47 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
 
         return new BranchFitnessGraph(setOfBranches);
     }
+
+    /**
+     *
+     * @param currentPopulation The current population of individuals.
+     * @return A sorted map of TestFitnessFunctions and fitness values.
+     */
+    public LinkedHashMap<TestFitnessFunction, Double> getLowFitnessBranches(List<TestChromosome> currentPopulation) {
+        // Get the best individual from the current population
+        TestChromosome bestIndividual = currentPopulation.get(0);
+
+        LinkedHashMap<TestFitnessFunction, Double> rankedGoals = new LinkedHashMap<TestFitnessFunction, Double>();
+        Set<TestFitnessFunction> uncoveredGoals = this.getUncoveredGoals();
+
+        for (TestFitnessFunction branch : uncoveredGoals) {
+            //System.out.println(branch.toString() + " Fitness: " + branch.getFitness(bestIndividual));
+            rankedGoals.put(branch, branch.getFitness(bestIndividual));
+        }
+        //System.out.println(rankedGoals);
+        //.out.println(sortByValues(rankedGoals));
+        return sortByValues(rankedGoals);
+    }
+
+    /**
+     * This function is used to return a sorted map of (TestFitnessFunction, Double).
+     *
+     * @param map to be sorted
+     * @return sorted map
+     */
+    private static LinkedHashMap<TestFitnessFunction, Double> sortByValues(LinkedHashMap<TestFitnessFunction, Double> map) {
+        List<Map.Entry<TestFitnessFunction, Double>> list = new ArrayList<>(map.entrySet());
+
+        // Sorting the list based on values
+        list.sort(Map.Entry.comparingByValue());
+
+        // Collecting the sorted entries into a new LinkedHashMap
+        LinkedHashMap<TestFitnessFunction, Double> sortedMap = new LinkedHashMap<>();
+        for (Map.Entry<TestFitnessFunction, Double> entry : list) {
+            sortedMap.put(entry.getKey(), entry.getValue());
+        }
+
+        return sortedMap;
+    }
+
 }
