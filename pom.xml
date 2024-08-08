@@ -37,6 +37,7 @@
         <module>plugins</module>
         <module>standalone_runtime</module>
         <module>shaded</module>
+        <module>examplCodez</module>
     </modules>
 
     <prerequisites>
@@ -846,5 +847,4 @@
         <rerunFailingTestsCount>0</rerunFailingTestsCount>
 
     </properties>
-
 </project>
