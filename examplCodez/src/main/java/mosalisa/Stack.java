@@ -1,38 +1,27 @@
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
-
-package org.example;
+package mosalisa;
 
 import java.util.EmptyStackException;
 
 public class Stack<T> {
     private int capacity = 10;
-    private int pointer = 0;
-    private T[] objects;
-
-    public Stack() {
-        this.objects = (Object[])(new Object[this.capacity]);
-    }
+    private int pointer  = 0;
+    private T[] objects = (T[]) new Object[capacity];
 
     public void push(T o) {
-        if (this.pointer >= this.capacity) {
+        if(pointer >= capacity) {
             throw new RuntimeException("Stack exceeded capacity!");
-        } else {
-            this.objects[this.pointer++] = o;
         }
+        objects[pointer++] = o;
     }
 
     public T pop() {
-        if (this.pointer <= 0) {
+        if(pointer <= 0) {
             throw new EmptyStackException();
-        } else {
-            return this.objects[--this.pointer];
         }
+        return objects[--pointer];
     }
 
     public boolean isEmpty() {
-        return this.pointer <= 0;
+        return pointer <= 0;
     }
 }
