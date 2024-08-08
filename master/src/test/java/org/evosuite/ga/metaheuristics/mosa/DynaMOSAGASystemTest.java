@@ -2,18 +2,17 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.StoppingCondition;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.classpath.ResourceList;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.junit.Assert;
 import org.junit.Test;
-
-import com.examples.with.different.packagename.mosalisa.Stack;
 
 public class DynaMOSAGASystemTest extends SystemTestBase {
 
@@ -35,7 +34,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         System.out.println("##############################################\n\n");
 
         EvoSuite evosuite = new EvoSuite();
-        String[] command = new String[]{"-generateMOSuite", "-class", cut};
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes"};
 
         Object result = evosuite.parseCommandLine(command);
         Assert.assertNotNull(result);
@@ -53,8 +52,10 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
 
     @Test
     public void testMOSALisa() {
-        List<Chromosome<?>> population = this.setup(null, 0, Stack.class.getCanonicalName());
+        //Console.SystemOutPritnln("CANOICAL Name: " + stack.class.);
+        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.Stack");
 
         Assert.assertNotEquals(population.size(), 0);
     }
+
 }
