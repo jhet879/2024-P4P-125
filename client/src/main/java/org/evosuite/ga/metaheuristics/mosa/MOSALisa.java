@@ -26,6 +26,7 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
+import org.evosuite.gpt.JDecompiler;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -241,10 +242,12 @@ public class MOSALisa extends AbstractMOSA {
 
 
             if (totalStalls >= 30) {
-                LinkedHashMap<TestFitnessFunction, Double> rankedGoals = new LinkedHashMap<TestFitnessFunction, Double>();
+                LinkedHashMap<TestFitnessFunction, Double> rankedGoals;
                 rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
-                System.out.println("LOW FITNESS BRANCHES: " + rankedGoals);
-                System.out.println("INVOKE GPT");
+                if (!rankedGoals.isEmpty())
+                {
+                    invokeGPT(rankedGoals);
+                }
                 totalStalls = 0;
             }
         }
@@ -267,6 +270,22 @@ public class MOSALisa extends AbstractMOSA {
         }
         logger.info("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
+    }
+
+    private String extractClassName(String targetClass) {
+        int dotIndex = targetClass.lastIndexOf(".");
+        return targetClass.substring(dotIndex + 1);
+    }
+
+    private void invokeGPT(LinkedHashMap<TestFitnessFunction, Double> rankedGoals) {
+        System.out.println("Invoking GPT...\n");
+        System.out.println("Fitness Functions:");
+        System.out.println(rankedGoals);
+        String pathToClass = Properties.CP + "/" + Properties.PROJECT_PREFIX + "/" + extractClassName(Properties.TARGET_CLASS) + ".class";
+        System.out.println("Path to Class: " + pathToClass);
+        // Decompile the class file and get it as a string
+        String classAsString = JDecompiler.decompileAndPrintClassFiles(pathToClass);
+        System.out.println(classAsString);
     }
 
     /**
