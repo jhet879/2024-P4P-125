@@ -34,13 +34,14 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         System.out.println("##############################################\n\n");
 
         EvoSuite evosuite = new EvoSuite();
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes"};
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=INSERT_GPT_KEY"};
 
         Object result = evosuite.parseCommandLine(command);
         Assert.assertNotNull(result);
 
         GeneticAlgorithm<?> ga = getGAFromResult(result);
 
+        System.out.println(Properties.GPT_KEY);
         System.out.println("\n\n########## GENERATED TESTS: ##########");
         System.out.println(ga.getBestIndividuals());
         System.out.println("######################################\n\n");
