@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import org.evosuite.gpt.GPTRequest;
 
 /**
  * @TODO UPDATE
@@ -285,7 +286,29 @@ public class MOSALisa extends AbstractMOSA {
         System.out.println("Path to Class: " + pathToClass);
         // Decompile the class file and get it as a string
         String classAsString = JDecompiler.decompileAndPrintClassFiles(pathToClass);
-        System.out.println(classAsString);
+
+        // Prepare the request for ChatGPT
+        StringBuilder sb = new StringBuilder();
+        sb.append("Given the Java class under test, lines of the class where test goals have not been met, ")
+                .append("generate tests that can cover these goals, combine tests wherever possible");
+
+        sb.append("Class under test:\n")
+                .append("```\n")
+                .append(classAsString)  // Escape newlines in the class content
+                .append("\n```\n");
+        sb.append("linesToCover:\n");
+        for (TestFitnessFunction key : rankedGoals.keySet()) {
+            sb.append(key + "\n");
+        }
+
+        System.out.println(sb.toString());
+
+        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
+        System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
+        System.out.println("GPT formatted Response:\n" + GPTRequest.get_code_only(initialGPTResponse));
+
+
+
     }
 
     /**
