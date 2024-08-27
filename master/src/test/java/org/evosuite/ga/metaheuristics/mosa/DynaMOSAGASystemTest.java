@@ -34,7 +34,8 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         System.out.println("##############################################\n\n");
 
         EvoSuite evosuite = new EvoSuite();
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=INSERT_GPT_KEY"};
+        String GPTTokenParam = "Change THIS";
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", GPTTokenParam };
 
         Object result = evosuite.parseCommandLine(command);
         Assert.assertNotNull(result);
