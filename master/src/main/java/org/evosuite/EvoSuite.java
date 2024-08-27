@@ -191,6 +191,14 @@ public class EvoSuite {
                 }
             }
 
+            if (line.hasOption("gpt_key")) {
+                try {
+                    Properties.getInstance().setValue("gpt_key", line.getOptionValue("gpt_key"));
+                } catch (Exception e) {
+                    throw new Error("Invalid value for GPT key: " + e.getMessage());
+                }
+            }
+
             if (line.hasOption("parallel")) {
                 String[] values = line.getOptionValues("parallel");
 

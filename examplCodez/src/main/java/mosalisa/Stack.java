@@ -1,4 +1,4 @@
-package com.examples.with.different.packagename.mosalisa;
+package mosalisa;
 
 import java.util.EmptyStackException;
 
@@ -6,7 +6,7 @@ public class Stack<T> {
     private int capacity = 10;
     private int pointer  = 0;
     private T[] objects = (T[]) new Object[capacity];
-    
+
     public void push(T o) {
         if(pointer >= capacity) {
             throw new RuntimeException("Stack exceeded capacity!");
@@ -20,8 +20,8 @@ public class Stack<T> {
         }
         return objects[--pointer];
     }
-    
+
     public boolean isEmpty() {
-	    return pointer <= 0;
-    } 
+        return pointer <= 0;
+    }
 }

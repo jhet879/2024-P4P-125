@@ -1667,6 +1667,12 @@ public class Properties {
     @Parameter(key = "eclipse_plugin", group = "Plugin", description = "Running plugin for experiments. Use EvoSuiteTest annotation and decorate generated tests with (checked = false).")
     public static boolean ECLIPSE_PLUGIN = false;
 
+    // ---------------------------------------------------------------
+    // MOSALISA PROPERTIES
+
+    @Parameter(key = "gpt_key", description = "Your GPT API Token. Required for making requests to GPT")
+    public static String GPT_KEY = "";
+
     // Added - fix for @NotNull annotations issue on evo mailing list
 
     @Parameter(key = "honour_data_annotations", group = "Runtime", description = "Allows EvoSuite to generate tests with or without honouring the parameter data annotations")

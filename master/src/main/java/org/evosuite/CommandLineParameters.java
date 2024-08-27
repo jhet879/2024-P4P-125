@@ -132,6 +132,8 @@ public class CommandLineParameters {
         @SuppressWarnings("static-access")
         Option property = OptionBuilder.withArgName("property=value").hasArgs(2).withValueSeparator().withDescription("use value for given property").create("D");
 
+        Option gpt_key = new Option("gpt_key", true,"GPT API Key used for making requests to GPT");
+
         for (Option option : generateOptions) {
             options.addOption(option);
         }
@@ -160,6 +162,7 @@ public class CommandLineParameters {
         options.addOption(heapDump);
         options.addOption(startedByCtg);
         options.addOption(parallel);
+        options.addOption(gpt_key);
 
         return options;
     }
