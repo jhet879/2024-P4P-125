@@ -2,6 +2,8 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
@@ -11,6 +13,8 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -21,6 +25,10 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         Properties.CRITERION = new Criterion[]{ Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION,
                 Criterion.WEAKMUTATION, Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION,
                 Criterion.CBRANCH};
+
+        Properties.GLOBAL_TIMEOUT = 3600;
+        Properties.MINIMIZATION_TIMEOUT = 3600;
+        Properties.EXTRA_TIMEOUT = 3600;
 
         System.out.println("\n\n########## EVOSUITE PROPERTIES: ##########");
         System.out.println("ALGORITHM: " + Properties.ALGORITHM);
@@ -34,8 +42,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         System.out.println("##############################################\n\n");
 
         EvoSuite evosuite = new EvoSuite();
-        String GPTTokenParam = "Change THIS";
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", GPTTokenParam };
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key="};
 
         Object result = evosuite.parseCommandLine(command);
         Assert.assertNotNull(result);
@@ -48,6 +55,8 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         System.out.println("######################################\n\n");
 
         System.out.println("RANKING FUNCTION FROM GA: " + ga.getRankingFunction());
+
+        ga.getPopulation();
 
         return new ArrayList<>(ga.getBestIndividuals());
     }

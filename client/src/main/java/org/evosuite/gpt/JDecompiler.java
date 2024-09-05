@@ -189,7 +189,7 @@ public class JDecompiler {
             String decompiledCode = decompiler.decompile(classFilePath, classBytes, new HashMap<>(), new String[]{});
 
             // Print the decompiled code
-            System.out.println(decompiledCode);
+            //System.out.println(decompiledCode);
             return decompiledCode;
         } catch (IOException e) {
             e.printStackTrace();

@@ -554,7 +554,9 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         TestChromosome bestIndividual = currentPopulation.get(0);
 
         LinkedHashMap<TestFitnessFunction, Double> rankedGoals = new LinkedHashMap<TestFitnessFunction, Double>();
-        Set<TestFitnessFunction> uncoveredGoals = this.getUncoveredGoals();
+        Set<TestFitnessFunction> uncoveredGoals = new HashSet<>(this.getUncoveredGoals());
+
+        System.out.println("UNCOVERED GOALS: " + uncoveredGoals.size());
 
         for (TestFitnessFunction branch : uncoveredGoals) {
             //System.out.println(branch.toString() + " Fitness: " + branch.getFitness(bestIndividual));

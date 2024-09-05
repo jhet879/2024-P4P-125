@@ -26,6 +26,7 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
+import org.evosuite.gpt.CompileGentests;
 import org.evosuite.gpt.JDecompiler;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -37,6 +38,8 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -247,7 +250,18 @@ public class MOSALisa extends AbstractMOSA {
                 rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
                 if (!rankedGoals.isEmpty())
                 {
-                    invokeGPT(rankedGoals);
+                    List<TestCase> gptTestCases = invokeGPT(rankedGoals);
+                    if (gptTestCases != null)
+                    {
+                        System.out.println("Carved tests: " + gptTestCases.size());
+                        for (TestCase tc : gptTestCases) {
+                            TestChromosome testChromosome = new TestChromosome();
+                            testChromosome.setTestCase(tc);
+                            testChromosome.set_gpt_status(true);
+                            this.calculateFitness(testChromosome);
+                            offspringPopulation.add(testChromosome);
+                        }
+                    }
                 }
                 totalStalls = 0;
             }
@@ -278,10 +292,10 @@ public class MOSALisa extends AbstractMOSA {
         return targetClass.substring(dotIndex + 1);
     }
 
-    private void invokeGPT(LinkedHashMap<TestFitnessFunction, Double> rankedGoals) {
+    private List<TestCase> invokeGPT(LinkedHashMap<TestFitnessFunction, Double> rankedGoals) {
         System.out.println("Invoking GPT...\n");
-        System.out.println("Fitness Functions:");
-        System.out.println(rankedGoals);
+        //System.out.println("Fitness Functions:");
+        //System.out.println(rankedGoals);
         String pathToClass = Properties.CP + "/" + Properties.PROJECT_PREFIX + "/" + extractClassName(Properties.TARGET_CLASS) + ".class";
         System.out.println("Path to Class: " + pathToClass);
         // Decompile the class file and get it as a string
@@ -290,7 +304,10 @@ public class MOSALisa extends AbstractMOSA {
         // Prepare the request for ChatGPT
         StringBuilder sb = new StringBuilder();
         sb.append("Given the Java class under test, lines of the class where test goals have not been met, ")
-                .append("generate tests that can cover these goals, combine tests wherever possible");
+                .append("generate stand-alone (no @Before, all the tests are self-contained) tests that can ")
+                .append("cover these goals, combine tests wherever possible. Call the class, 'ClassTest'. ")
+                .append("Do not add any import/package statements, only add imports required for JUnit and ")
+                .append("any exceptions that are used. ");
 
         sb.append("Class under test:\n")
                 .append("```\n")
@@ -301,14 +318,27 @@ public class MOSALisa extends AbstractMOSA {
             sb.append(key + "\n");
         }
 
-        System.out.println(sb.toString());
+        //System.out.println(sb.toString());
 
         String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
-        System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
-        System.out.println("GPT formatted Response:\n" + GPTRequest.get_code_only(initialGPTResponse));
+        //System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
 
+        String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+        //System.out.println("GPT formatted Response:\n" + formattedResponse);
+        formattedResponse = GPTRequest.cleanResponse(formattedResponse);
+        formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
+        GPTRequest.writeGPTtoFile(formattedResponse);
+        List<TestCase> carvedTestCases;
+        // TODO:  ADD ERROR CHECKING FOR THIS STEP
+        try {
+            carvedTestCases = CompileGentests.compileTests(Properties.CP + "/" + Properties.PROJECT_PREFIX);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
 
-
+        return  carvedTestCases;
     }
 
     /**
@@ -422,6 +452,14 @@ public class MOSALisa extends AbstractMOSA {
             this.notifyIteration();
         }
 
+        System.out.println("Iterations: " + this.currentIteration);
+        int gpt_counter = 0;
+        for (TestChromosome tc : this.population) {
+            if (tc.get_gpt_status()){
+                gpt_counter++;
+            }
+        }
+        System.out.println("GPT GENERATED TESTS: " + gpt_counter);
         this.notifySearchFinished();
     }
 

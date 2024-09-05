@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.evosuite.Properties;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationExecutionResult;
@@ -67,6 +68,15 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     private static final Logger logger = LoggerFactory.getLogger(TestChromosome.class);
 
+    private Boolean gpt_generated = false;
+
+    public void set_gpt_status(Boolean status){
+        gpt_generated = status;
+    }
+
+    public Boolean get_gpt_status(){
+        return gpt_generated;
+    }
 
     /**
      * To keep track of what has changed since last fitness evaluation
