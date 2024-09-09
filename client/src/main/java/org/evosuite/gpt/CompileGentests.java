@@ -1,6 +1,7 @@
 package org.evosuite.gpt;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
@@ -46,8 +47,12 @@ public class CompileGentests {
             Properties.SEED_MUTATIONS = 0;
             Properties.SEED_CLONE = 1;
 
-            JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(null);
+            // Set this property to true to avoid altering the current evosuite run's goals
+            Properties.skip_fitness_calculation = true;
+            JUnitTestCarvedChromosomeFactory factory = new JUnitTestCarvedChromosomeFactory(null); // <-- Causes spikes in goals
             List<TestCase> carvedTestCases = factory.getCarvedTestCases();
+            Properties.skip_fitness_calculation = false;
+
             factory.getCarvedTestSuite();
             //System.out.println(carvedTestCases.size());
             return carvedTestCases;

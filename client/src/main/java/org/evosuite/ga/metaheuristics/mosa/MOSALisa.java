@@ -38,12 +38,9 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
+
 import org.evosuite.gpt.GPTRequest;
 
 /**
@@ -60,6 +57,11 @@ public class MOSALisa extends AbstractMOSA {
     private static final long serialVersionUID = 146182080947267628L;
 
     private static final Logger logger = LoggerFactory.getLogger(MOSALisa.class);
+
+    public int totalGPTCalls = 0;
+    public int successfulCarvedGPTCalls = 0;
+    public int gptTestsAddedToOffSpringPop = 0;
+    public int totalGPTTestsAddedToSortedPop = 0;
 
     /**
      * Manager to determine the test goals to consider at each generation
@@ -250,15 +252,19 @@ public class MOSALisa extends AbstractMOSA {
                 rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
                 if (!rankedGoals.isEmpty())
                 {
+                    totalGPTCalls++;
                     List<TestCase> gptTestCases = invokeGPT(rankedGoals);
                     if (gptTestCases != null)
                     {
+                        successfulCarvedGPTCalls++;
                         System.out.println("Carved tests: " + gptTestCases.size());
                         for (TestCase tc : gptTestCases) {
+                            gptTestsAddedToOffSpringPop++;
                             TestChromosome testChromosome = new TestChromosome();
                             testChromosome.setTestCase(tc);
                             testChromosome.set_gpt_status(true);
                             this.calculateFitness(testChromosome);
+                            System.out.println("AF " + testChromosome.getFitness());
                             offspringPopulation.add(testChromosome);
                         }
                     }
@@ -329,6 +335,7 @@ public class MOSALisa extends AbstractMOSA {
         formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
         GPTRequest.writeGPTtoFile(formattedResponse);
         List<TestCase> carvedTestCases;
+
         // TODO:  ADD ERROR CHECKING FOR THIS STEP
         try {
             carvedTestCases = CompileGentests.compileTests(Properties.CP + "/" + Properties.PROJECT_PREFIX);
@@ -448,18 +455,39 @@ public class MOSALisa extends AbstractMOSA {
         // Evolve the population generation by generation until all gaols have been covered or the
         // search budget has been consumed.
         while (!isFinished() && this.goalsManager.getUncoveredGoals().size() > 0) {
+            System.out.println("CYCLE: " + this.currentIteration + " GOALS: " + this.getTotalNumberOfGoals());
+            System.out.println("COVERED GOALS[" + this.goalsManager.getCoveredGoals().size() + "]: " +this.goalsManager.getCoveredGoals());
+
+            System.out.println("UNCOVERED GOALS[" + this.goalsManager.getUncoveredGoals().size() + "]: " +this.goalsManager.getUncoveredGoals());
+            System.out.println();
+
+            int gpt_counter = 0;
+            for (TestChromosome tc : this.population) {
+                if (tc.get_gpt_status()){
+                    gpt_counter++;
+                }
+            }
+            totalGPTTestsAddedToSortedPop += gpt_counter;
+            System.out.println("GPT GENERATED TESTS IN POPULATION: " + gpt_counter);
             this.evolve();
             this.notifyIteration();
         }
 
-        System.out.println("Iterations: " + this.currentIteration);
-        int gpt_counter = 0;
-        for (TestChromosome tc : this.population) {
-            if (tc.get_gpt_status()){
-                gpt_counter++;
-            }
+        if (isFinished()){
+            int totalGoals = this.getTotalNumberOfGoals();
+            int totalCoveredGoals = this.getCoveredGoals().size();
+            System.out.println("Exhausted Budget");
+            double coverage = totalGoals == 0 ? 1.0 : ((double) totalCoveredGoals) / ((double) totalGoals);
+            System.out.println("Calculated Coverage = " + coverage);
         }
-        System.out.println("GPT GENERATED TESTS: " + gpt_counter);
+
+
+//        System.out.println(this.suiteFitnessFunctions.keySet().);
+        System.out.println("Iterations: " + this.currentIteration);
+        System.out.println("Sucessful GPT Calls: " + successfulCarvedGPTCalls + "/" + totalGPTCalls);
+        System.out.println("Total GPT Tests Added to Offspring Population: " + gptTestsAddedToOffSpringPop);
+        System.out.println("Running sum of gpt tests added to sorted population: " + totalGPTTestsAddedToSortedPop);
+
         this.notifySearchFinished();
     }
 

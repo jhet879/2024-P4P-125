@@ -1673,6 +1673,11 @@ public class Properties {
     @Parameter(key = "gpt_key", description = "Your GPT API Token. Required for making requests to GPT")
     public static String GPT_KEY = "";
 
+    // Used to skip fitness calculation in JUnitTestCarvedChromosomeFactory due to it tampering with the
+    // goals of the current evosuite run.
+    public static boolean skip_fitness_calculation = false;
+
+
     // Added - fix for @NotNull annotations issue on evo mailing list
 
     @Parameter(key = "honour_data_annotations", group = "Runtime", description = "Allows EvoSuite to generate tests with or without honouring the parameter data annotations")

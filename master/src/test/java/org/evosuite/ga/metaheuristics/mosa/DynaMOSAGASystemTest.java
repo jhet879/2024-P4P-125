@@ -13,6 +13,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.Assert;
@@ -29,6 +30,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         Properties.GLOBAL_TIMEOUT = 3600;
         Properties.MINIMIZATION_TIMEOUT = 3600;
         Properties.EXTRA_TIMEOUT = 3600;
+        //Properties.JUNIT_TESTS = true;
 
         System.out.println("\n\n########## EVOSUITE PROPERTIES: ##########");
         System.out.println("ALGORITHM: " + Properties.ALGORITHM);
@@ -42,21 +44,51 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         System.out.println("##############################################\n\n");
 
         EvoSuite evosuite = new EvoSuite();
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key="};
+        String GPTKey = "";
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey};
+
+        // display stats?
+        StringBuilder s = new StringBuilder();
+        s.append(RuntimeVariable.Coverage);
+        s.append(",");
+        s.append(RuntimeVariable.BranchCoverage);
+        s.append(",");
+        s.append(RuntimeVariable.LineCoverage);
+        s.append(",");
+        s.append(RuntimeVariable.ExceptionCoverage);
+        s.append(",");
+        s.append(RuntimeVariable.WeakMutationScore);
+        s.append(",");
+        s.append(RuntimeVariable.OutputCoverage);
+        s.append(",");
+        s.append(RuntimeVariable.MethodCoverage);
+        s.append(",");
+        s.append(RuntimeVariable.MethodNoExceptionCoverage);
+        s.append(",");
+        s.append(RuntimeVariable.CBranchCoverage);
+        s.append(",");
+        s.append(RuntimeVariable.Covered_Goals);
+        s.append(",");
+        s.append(RuntimeVariable.Total_Goals);
+        s.append(",");
+        Properties.OUTPUT_VARIABLES = s.toString();
+        // display stats?
 
         Object result = evosuite.parseCommandLine(command);
         Assert.assertNotNull(result);
 
         GeneticAlgorithm<?> ga = getGAFromResult(result);
 
-        System.out.println(Properties.GPT_KEY);
-        System.out.println("\n\n########## GENERATED TESTS: ##########");
-        System.out.println(ga.getBestIndividuals());
-        System.out.println("######################################\n\n");
+//        System.out.println(Properties.GPT_KEY);
+//        System.out.println("\n\n########## GENERATED TESTS: ##########");
+//        System.out.println(ga.getBestIndividuals());
+//        System.out.println("######################################\n\n");
 
         System.out.println("RANKING FUNCTION FROM GA: " + ga.getRankingFunction());
 
         ga.getPopulation();
+
+        ga.getBestIndividual().getCoverage();
 
         return new ArrayList<>(ga.getBestIndividuals());
     }
@@ -64,7 +96,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
     @Test
     public void testMOSALisa() {
         //Console.SystemOutPritnln("CANOICAL Name: " + stack.class.);
-        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.Stack");
+        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.ComplexAPIUsage");
 
         Assert.assertNotEquals(population.size(), 0);
     }

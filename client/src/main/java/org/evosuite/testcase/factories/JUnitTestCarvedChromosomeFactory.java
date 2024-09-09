@@ -22,6 +22,7 @@ package org.evosuite.testcase.factories;
 import org.evosuite.Properties;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.statistics.RuntimeVariable;
@@ -48,6 +49,8 @@ public class JUnitTestCarvedChromosomeFactory implements
     private final List<TestCase> junitTests = new ArrayList<>();
 
     private final ChromosomeFactory<TestChromosome> defaultFactory;
+
+    public GeneticAlgorithm ga;
 
     // These two variables will go once the new statistics frontend is finally finished
     private static int totalNumberOfTestsCarved = 0;
@@ -91,11 +94,13 @@ public class JUnitTestCarvedChromosomeFactory implements
                 suite.addTest(test);
             }
 
-            for (Properties.Criterion pc : Properties.CRITERION) {
-                TestSuiteFitnessFunction f = FitnessFunctions.getFitnessFunction(pc);
-                f.getFitness(suite);
+            if (!Properties.skip_fitness_calculation) {
+                for (Properties.Criterion pc : Properties.CRITERION) {
+                    TestSuiteFitnessFunction f = FitnessFunctions.getFitnessFunction(pc);
+                    f.getFitness(suite);
+                }
+                carvedCoverage = suite.getCoverage();
             }
-            carvedCoverage = suite.getCoverage();
         }
 
         ClientNodeLocal client = ClientServices.getInstance().getClientNode();

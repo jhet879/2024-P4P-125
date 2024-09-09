@@ -27,6 +27,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.ga.operators.mutation.MutationHistory;
+import org.evosuite.gpt.GPTRequest;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.symbolic.BranchCondition;
@@ -323,6 +324,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // Delete
         if (Randomness.nextDouble() <= Properties.P_TEST_DELETE) {
             logger.debug("Mutation: delete");
+//            if (mutationDelete())
+//                changed = true;
+
             if (mutationDelete())
                 changed = true;
         }
@@ -687,7 +691,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * Add an additional secondary objective to the end of the list of
      * objectives
      *
-     * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
+     * @param objective a {@link SecondaryObjective} object.
      */
     public static void addSecondaryObjective(SecondaryObjective<TestChromosome> objective) {
         secondaryObjectives.add(objective);
@@ -698,7 +702,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * Getter for the field <code>secondaryObjectives</code>.
      * </p>
      *
-     * @return a {@link java.util.List} object.
+     * @return a {@link List} object.
      */
     public static List<SecondaryObjective<TestChromosome>> getSecondaryObjectives() {
         return secondaryObjectives;
@@ -708,6 +712,145 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     public TestSuiteChromosome toSuite() {
         return Stream.of(this).collect(toTestSuiteCollector);
     }
+
+    // MOSALlisa custom functions
+    /**
+     * Each statement is deleted with probability 1/length
+     *
+     * @return
+     */
+    private boolean mutationDeleteGPT() {
+
+        if (test.isEmpty()) {
+            return false; //nothing to delete
+        }
+
+        boolean changed = false;
+        int lastMutableStatement = getLastMutatableStatement();
+        double pl = 1d / (lastMutableStatement + 1);
+        TestFactory testFactory = TestFactory.getInstance();
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Given this test, and the last line number that identifies the last statement that is allowed to be deleted \n\n" +
+                "return an array of line numbers, symbolizing which lines should be deleted to possibly improve the test case, " +
+                "\n\n an empty array containing no deletions is also appropriate\n\n");
+
+        sb.append("Last line that can be deleted: ").append(lastMutableStatement);
+        sb.append("<<Code>>\n\n");
+        sb.append(test.toCode());
+        System.out.println("GPT Requst\n" + sb.toString());
+        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
+        String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+
+        try {
+            ArrayList<Integer> linesToDelete = extractArrayFromString(formattedResponse);
+            System.out.println("GPT Reponse\n" + formattedResponse);
+
+            for (int line : linesToDelete) {
+                changed |= deleteStatement(testFactory, line);
+            }
+
+        } catch(Exception e){
+            System.out.println("Incorrectly generated array to delete");
+            return false;
+        }
+
+
+        /*for (int num = lastMutableStatement; num >= 0; num--) {
+
+            if (num >= test.size()) {
+                continue; //in case the delete remove more than one statement
+            }
+
+            // Each statement is deleted with probability 1/l
+            if (Randomness.nextDouble() <= pl) {
+                changed |= deleteStatement(testFactory, num);
+            }
+        }*/
+
+        return changed;
+    }
+
+    /**
+     * Each statement is replaced with probability 1/length
+     *
+     * @return
+     */
+    private boolean mutationChangeGPT() {
+        boolean changed = false;
+        int lastMutatableStatement = getLastMutatableStatement();
+        double pl = 1d / (lastMutatableStatement + 1);
+        TestFactory testFactory = TestFactory.getInstance();
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Given this test, and the last line number that identifies the last statement that is allowed to be replaced \n\n" +
+                "return an array of line numbers, symbolizing which lines should be replaced to possibly improve the test case, " +
+                "\n\n an empty array containing no replacements is also appropriate\n\n");
+
+        sb.append("Last line that can be replaced: ").append(lastMutatableStatement);
+        sb.append("<<Code>>\n\n");
+        sb.append(test.toCode());
+        System.out.println("GPT Requst\n" + sb.toString());
+        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
+        String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+
+        try {
+            ArrayList<Integer> positions = extractArrayFromString(formattedResponse);
+            System.out.println("GPT Reponse\n" + formattedResponse);
+
+            assert (test.isValid());
+            for (int position : positions) {
+                Statement statement = test.getStatement(position);
+                if (statement.isReflectionStatement())
+                    continue;
+                int oldDistance = statement.getReturnValue().getDistance();
+                if (statement.mutate(test, testFactory)) {
+                    changed = true;
+                    mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
+                            TestMutationHistoryEntry.TestMutation.CHANGE, statement));
+                    assert (test.isValid());
+                } else if (!statement.isAssignmentStatement()) {
+                    int pos = statement.getPosition();
+                    if (testFactory.changeRandomCall(test, statement)) {
+                        changed = true;
+                        mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
+                                TestMutationHistoryEntry.TestMutation.CHANGE,
+                                test.getStatement(pos)));
+                    }
+                    assert (test.isValid());
+                    statement.getReturnValue().setDistance(oldDistance);
+                }
+            }
+        } catch(Exception e){
+            System.out.println("Incorrectly generated array to delete");
+            return false;
+        }
+
+        return changed;
+    }
+
+    //Move/Delete Later
+    public static ArrayList<Integer> extractArrayFromString(String input) {
+        // Remove the "json\n" part and the trailing "\n"
+        String arrayPart = input.replace("json\n", "").replace("\n", "").trim();
+
+        // Remove the square brackets
+        arrayPart = arrayPart.replace("[", "").replace("]", "");
+
+        // Split the string by commas and whitespace
+        String[] numberStrings = arrayPart.split(",\\s*");
+
+        // Convert the string array into an ArrayList of Integers
+        ArrayList<Integer> numbers = new ArrayList<>();
+        for (String numberString : numberStrings) {
+            numbers.add(Integer.parseInt(numberString));
+        }
+
+        return numbers;
+    }
+    // ----------------------------------
 
     public final static TestChromosomeCollector toTestSuiteCollector = new TestChromosomeCollector();
 
@@ -744,6 +887,8 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             return characteristics;
         }
     }
+
+
 
 
 }
