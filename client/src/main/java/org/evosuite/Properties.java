@@ -1680,6 +1680,22 @@ public class Properties {
     // Used to define the probability that gpt is used for performing mutation operations
     public static double GPT_MUTATION_USAGE_PROBABILITY = 0.2;
 
+    @Parameter(key = "use_codamosa", description = "Disable/Enable the usage of the CODAMOSA implementation in MOSALISA")
+    public static boolean USE_CODAMOSA = false;
+
+    @Parameter(key = "use_gpt_mutation", description = "Disable/Enable the usage of the gpt for mutation in MOSALISA")
+    public static boolean USE_GPT_MUTATION = false;
+
+    @Parameter(key = "use_gpt_crossover", description = "Disable/Enable the usage of the gpt for crossover in MOSALISA")
+    public static boolean USE_GPT_CROSSOVER = false;
+
+    @Parameter(key = "use_gpt_initial_pop", description = "Disable/Enable the usage of the gpt for generating the initial population in MOSALISA")
+    public static boolean USE_GPT_INITIAL_POPULATION = false;
+
+    @Parameter(key = "use_gpt_non_regression", description = "Disable/Enable the usage of the gpt for generating non-regression mode testsin MOSALISA")
+    public static boolean USE_GPT_NON_REGRESSION = false;
+
+
     // Added - fix for @NotNull annotations issue on evo mailing list
 
     @Parameter(key = "honour_data_annotations", group = "Runtime", description = "Allows EvoSuite to generate tests with or without honouring the parameter data annotations")

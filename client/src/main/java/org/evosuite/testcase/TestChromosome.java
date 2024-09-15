@@ -344,7 +344,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // Delete
         if (Randomness.nextDouble() <= Properties.P_TEST_DELETE) {
             logger.debug("Mutation: delete");
-            if (Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) {
+            if ((Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) && (Properties.USE_GPT_MUTATION)) {
                 AT_GPTMdelete++;
                 // USE GPT
                 if (mutationDeleteGPT()) {
@@ -364,7 +364,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // Change
         if (Randomness.nextDouble() <= Properties.P_TEST_CHANGE) {
             logger.debug("Mutation: change");
-            if (Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) {
+            if ((Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) && (Properties.USE_GPT_MUTATION)) {
                 // USE GPT
                 AT_GPTMchange++;
                 if (mutationChangeGPT()) {
@@ -384,7 +384,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // Insert
         if (Randomness.nextDouble() <= Properties.P_TEST_INSERT) {
             logger.debug("Mutation: insert");
-            if (Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) {
+            if ((Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) && (Properties.USE_GPT_MUTATION)) {
                 // USE GPT
                 AT_GPTMinsert++;
                 if (mutationInsertGPT()) {

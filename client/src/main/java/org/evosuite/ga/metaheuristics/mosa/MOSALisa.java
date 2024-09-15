@@ -246,30 +246,29 @@ public class MOSALisa extends AbstractMOSA {
                 }
             }
 
-
-            if (totalStalls >= 30) {
-                LinkedHashMap<TestFitnessFunction, Double> rankedGoals;
-                rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
-                if (!rankedGoals.isEmpty())
-                {
-                    totalGPTCalls++;
-                    List<TestCase> gptTestCases = invokeGPT(rankedGoals);
-                    if (gptTestCases != null)
-                    {
-                        successfulCarvedGPTCalls++;
-                        System.out.println("Carved tests: " + gptTestCases.size());
-                        for (TestCase tc : gptTestCases) {
-                            gptTestsAddedToOffSpringPop++;
-                            TestChromosome testChromosome = new TestChromosome();
-                            testChromosome.setTestCase(tc);
-                            testChromosome.set_gpt_status(true);
-                            this.calculateFitness(testChromosome);
-                            //System.out.println("AF " + testChromosome.getFitness());
-                            offspringPopulation.add(testChromosome);
+            if (Properties.USE_CODAMOSA) {
+                if (totalStalls >= 30) {
+                    LinkedHashMap<TestFitnessFunction, Double> rankedGoals;
+                    rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
+                    if (!rankedGoals.isEmpty()) {
+                        totalGPTCalls++;
+                        List<TestCase> gptTestCases = invokeGPT(rankedGoals);
+                        if (gptTestCases != null) {
+                            successfulCarvedGPTCalls++;
+                            System.out.println("Carved tests: " + gptTestCases.size());
+                            for (TestCase tc : gptTestCases) {
+                                gptTestsAddedToOffSpringPop++;
+                                TestChromosome testChromosome = new TestChromosome();
+                                testChromosome.setTestCase(tc);
+                                testChromosome.set_gpt_status(true);
+                                this.calculateFitness(testChromosome);
+                                //System.out.println("AF " + testChromosome.getFitness());
+                                offspringPopulation.add(testChromosome);
+                            }
                         }
                     }
+                    totalStalls = 0;
                 }
-                totalStalls = 0;
             }
         }
         // Add new randomly generate tests

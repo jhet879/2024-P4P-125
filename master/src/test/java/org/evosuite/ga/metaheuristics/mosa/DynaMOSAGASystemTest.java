@@ -64,7 +64,8 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         EvoSuite evosuite = new EvoSuite();
         Dotenv dotenv = Dotenv.load();
         String GPTKey = dotenv.get("GPT_TOKEN");
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey};
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes",
+                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_gpt_crossover", "-use_gpt_initial_pop", "-use_gpt_non_regression"};
 
         // display stats?
 //        StringBuilder s = new StringBuilder();
@@ -99,6 +100,12 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         GeneticAlgorithm<TestSuiteChromosome> ga = getGAFromResult(result);
 
         TestSuiteChromosome best = ga.getBestIndividual();
+
+        System.out.println("USE CODAMOSA: " + Properties.USE_CODAMOSA);
+        System.out.println("USE GPT MUTATION: " + Properties.USE_GPT_MUTATION);
+        System.out.println("USE GPT CROSSOVER: " + Properties.USE_GPT_CROSSOVER);
+        System.out.println("USE GPT INITIAL POP: " + Properties.USE_GPT_INITIAL_POPULATION);
+        System.out.println("USE GPT NON-REGRESSION: " + Properties.USE_GPT_NON_REGRESSION);
 
 //        System.out.println("\n\n########## GENERATED TESTS: ##########");
         //System.out.println(ga.getBestIndividuals());
