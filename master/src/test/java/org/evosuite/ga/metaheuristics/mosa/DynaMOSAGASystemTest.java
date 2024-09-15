@@ -125,7 +125,8 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
 
     @Test
     public void testGPT() {
-        Properties.GPT_KEY = "";
+        Dotenv dotenv = Dotenv.load();
+        Properties.GPT_KEY = dotenv.get("GPT_TOKEN");
 
         StringBuilder sb = new StringBuilder();
         sb.append("Who is the president of the United States?");

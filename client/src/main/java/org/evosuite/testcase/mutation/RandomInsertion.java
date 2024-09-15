@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase.mutation;
 
-import jdk.incubator.vector.VectorOperators;
 import org.evosuite.Properties;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
