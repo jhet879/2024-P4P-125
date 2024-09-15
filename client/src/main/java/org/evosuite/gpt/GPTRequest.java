@@ -36,9 +36,9 @@ public class GPTRequest {
             message.put("content", prompt);
 
             Map<String, Object> jsonMap = new HashMap<>();
-            jsonMap.put("model", "gpt-4o-mini");
+//            jsonMap.put("model", "gpt-4o-mini");
 //            jsonMap.put("model", "gpt-4");
-//            jsonMap.put("model", "gpt-4o");
+            jsonMap.put("model", "gpt-4o");
             jsonMap.put("messages", new Map[]{message});
 
             String jsonInputString = objectMapper.writeValueAsString(jsonMap);

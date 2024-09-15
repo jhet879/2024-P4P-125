@@ -38,13 +38,11 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         Properties.GLOBAL_TIMEOUT = 3600;
         Properties.MINIMIZATION_TIMEOUT = 3600;
         Properties.EXTRA_TIMEOUT = 3600;
-//        Properties.JUNIT_TESTS = true;
 
-        //
         Properties.IS_RUNNING_A_SYSTEM_TEST = true;
         Properties.NEW_STATISTICS = true;
         Properties.STATISTICS_BACKEND = Properties.StatisticsBackend.DEBUG;
-        Properties.JUNIT_TESTS = false;
+        Properties.JUNIT_TESTS = true;
 
         if (!useML) {
             Properties.ALGORITHM = Properties.Algorithm.DYNAMOSA;
@@ -64,8 +62,10 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         EvoSuite evosuite = new EvoSuite();
         Dotenv dotenv = Dotenv.load();
         String GPTKey = dotenv.get("GPT_TOKEN");
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes",
-                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_gpt_crossover", "-use_gpt_initial_pop", "-use_gpt_non_regression"};
+//        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes",
+//                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_gpt_crossover", "-use_gpt_initial_pop", "-use_gpt_non_regression"};
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_gpt_non_regression"};
+
 
         // display stats?
 //        StringBuilder s = new StringBuilder();
@@ -125,7 +125,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
 
     @Test
     public void testDefault() {
-        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.RecursiveParser", false);
+        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.IncorrectOperations", false);
 
         Assert.assertNotEquals(population.size(), 0);
     }

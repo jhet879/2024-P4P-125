@@ -32,6 +32,7 @@ import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.gpt.GPTRequest;
 import org.evosuite.junit.JUnitAnalyzer;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.result.TestGenerationResult;
@@ -68,9 +69,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.util.*;
+import org.evosuite.gpt.JDecompiler;
 
 /**
  * Main entry point. Does all the static analysis, invokes a test generation
@@ -225,6 +230,62 @@ public class TestSuiteGenerator {
             writeJUnitFailingTests();
         }
         TestCaseExecutor.pullDown();
+
+        if (Properties.USE_GPT_NON_REGRESSION) {
+            // USE GPT FOR ADJUSTING THE TEST CASES FOR NON-REGRESSION
+            String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + Properties.JUNIT_SUFFIX;
+            String testDir = Properties.TEST_DIR;
+            String classPrefix = Properties.CLASS_PREFIX;
+            String evosuiteTestsFile = testDir+"\\"+classPrefix+"\\"+name+".java";
+
+            String pathToClass = Properties.CP + "/" + Properties.PROJECT_PREFIX + "/" + extractClassName(Properties.TARGET_CLASS) + ".class";
+            System.out.println("Path to Class: " + pathToClass);
+            // Decompile the class file and get it as a string
+            String classAsString = JDecompiler.decompileAndPrintClassFiles(pathToClass);
+
+            String classUnderTestString = classAsString;
+            String generatedTestSuiteString = "";
+            try {
+                 //classUnderTestString = new String(Files.readAllBytes(Paths.get(evosuiteTestsFile)));
+                 generatedTestSuiteString = new String(Files.readAllBytes(Paths.get(evosuiteTestsFile)));
+                 System.out.println(classUnderTestString);
+            } catch (IOException e) {
+                System.out.println("IO ERROR");
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("Given a set of classes being tested and their corresponding JUnit 4 test suite, perform an analysis on these classes to verify their behavioural correctness.\n");
+            sb.append("Some conditions:\n");
+            sb.append("1. Review the implementation of each class to ensure it behaves as expected.\n");
+            sb.append("2. If behaviour in the classes is found to be incorrect, modify the existing tests\n");
+            sb.append("3. Do NOT add new tests, only modify the existing tests\n");
+            sb.append("4. The adjustments in the test suite should be capable of detecting the identified behavioural errors when the test suite is executed.\n");
+            sb.append("5. No explanation is required, just return the modified test suite.\n");
+            sb.append("6. If no modification is required, return an empty string.\n");
+            sb.append("Objective: Ensure that the test suite robustly checks and catches any functional discrepancies in the classes under test.\n");
+
+            sb.append("Class Under Test:\n");
+            sb.append("```java\n");
+            sb.append(classUnderTestString);
+            sb.append("\n```\n");
+
+            sb.append("JUnit 4 Test Suite:\n");
+            sb.append("```java\n");
+            sb.append(generatedTestSuiteString);
+            sb.append("\n```\n");
+
+            String gptRequest = sb.toString();
+            String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
+            System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
+            String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+            System.out.println("GPT Formatted Response:\n" + formattedResponse);
+
+
+
+
+
+        }
+
         /*
          * TODO: when we will have several processes running in parallel, we ll
          * need to handle the gathering of the statistics.
@@ -235,6 +296,12 @@ public class TestSuiteGenerator {
         LoggingUtils.getEvoLogger().info("");
 
         return result != null ? result : TestGenerationResultBuilder.buildSuccessResult();
+    }
+
+
+    private String extractClassName(String targetClass) {
+        int dotIndex = targetClass.lastIndexOf(".");
+        return targetClass.substring(dotIndex + 1);
     }
 
     /**
@@ -498,6 +565,7 @@ public class TestSuiteGenerator {
                         + "Skipping assertion generation because not enough time is left");
             } else {
                 TestSuiteGeneratorHelper.addAssertions(testSuite);
+
             }
             StatisticsSender.sendIndividualToMaster(testSuite); // FIXME: can we
             // pass the list
