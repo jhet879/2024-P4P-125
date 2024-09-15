@@ -2162,6 +2162,62 @@ public class TestFactory {
         return -1;
     }
 
+    public boolean insertRandomCallOnEnvironmentAtPos(TestCase test, int position) {
+
+        boolean changed = false;
+        int previousLength = test.size();
+        currentRecursion.clear();
+
+        List<GenericAccessibleObject<?>> shuffledOptions = TestCluster.getInstance().getRandomizedCallsToEnvironment();
+        if (shuffledOptions == null || shuffledOptions.isEmpty()) {
+            return false;
+        }
+
+        //iterate (in random order) over all possible environment methods till we find one that can be inserted
+        for (GenericAccessibleObject<?> o : shuffledOptions) {
+            try {
+                if (o.isConstructor()) {
+                    GenericConstructor c = (GenericConstructor) o;
+                    addConstructor(test, c, position, 0);
+                    changed = true;
+                } else if (o.isMethod()) {
+                    GenericMethod m = (GenericMethod) o;
+                    if (!m.isStatic()) {
+
+                        VariableReference callee = null;
+                        Type target = m.getOwnerType();
+
+                        if (!test.hasObject(target, position)) {
+                            callee = createObject(test, target, position, 0, null);
+                            position += test.size() - previousLength;
+                            previousLength = test.size();
+                        } else {
+                            callee = test.getRandomNonNullObject(target, position);
+                        }
+                        if (!TestUsageChecker.canUse(m.getMethod(), callee.getVariableClass())) {
+                            logger.error("Cannot call method " + m + " with callee of type " + callee.getClassName());
+                        }
+
+                        addMethodFor(test, callee, m.copyWithNewOwner(callee.getGenericClass()), position);
+                        changed = true;
+                    } else {
+                        addMethod(test, m, position, 0);
+                        changed = true;
+                    }
+                }
+//                else {
+//                    //throw new RuntimeException("Unrecognized type for environment: " + o);
+//                }
+            } catch (ConstructionFailedException e) {
+                //TODO what to do here?
+                AtMostOnceLogger.warn(logger, "Failed environment insertion: " + e);
+            }
+        }
+
+        //note: due to the constraints, it could well be that no environment method could be added
+
+        return changed;
+    }
 
     /**
      * Inserts a random call for the UUT into the given {@code test} at the specified {@code
@@ -2350,6 +2406,11 @@ public class TestFactory {
     public int insertRandomStatement(TestCase test, int lastPosition) {
         RandomInsertion rs = new RandomInsertion();
         return rs.insertStatement(test, lastPosition);
+    }
+
+    public boolean insertRandomStatementAtPos(TestCase test, int[] positionTypePairs, int lastPosition) {
+        RandomInsertion rs = new RandomInsertion();
+        return rs.insertRandomStatementAtPos(test, positionTypePairs, lastPosition);
     }
 
     /**

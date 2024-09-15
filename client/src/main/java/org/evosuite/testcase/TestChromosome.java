@@ -19,6 +19,9 @@
  */
 package org.evosuite.testcase;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.evosuite.Properties;
 import org.evosuite.coverage.mutation.Mutation;
@@ -302,6 +305,23 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         return localSearch.doSearch(this, objective);
     }
 
+    public static int Mdelete = 0;
+    public static int Mchange = 0;
+    public static int Minsert = 0;
+    public static int Mchanged = 0;
+    public static int AT_Mdelete = 0;
+    public static int AT_Mchange = 0;
+    public static int AT_Minsert = 0;
+    public static int AT_Mchanged = 0;
+    public static int GPTMdelete = 0;
+    public static int GPTMchange = 0;
+    public static int GPTMinsert = 0;
+    public static int GPTMchanged = 0;
+    public static int AT_GPTMdelete = 0;
+    public static int AT_GPTMchange = 0;
+    public static int AT_GPTMinsert = 0;
+
+
     /**
      * {@inheritDoc}
      * <p>
@@ -324,28 +344,65 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // Delete
         if (Randomness.nextDouble() <= Properties.P_TEST_DELETE) {
             logger.debug("Mutation: delete");
-//            if (mutationDelete())
-//                changed = true;
-
-            if (mutationDelete())
-                changed = true;
+            if (Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) {
+                AT_GPTMdelete++;
+                // USE GPT
+                if (mutationDeleteGPT()) {
+                    GPTMdelete++;
+                    changed = true;
+                }
+            } else {
+                AT_Mdelete++;
+                // DO NOT USE GPT
+                if (mutationDelete()) {
+                    Mdelete++;
+                    changed = true;
+                }
+            }
         }
 
         // Change
         if (Randomness.nextDouble() <= Properties.P_TEST_CHANGE) {
             logger.debug("Mutation: change");
-            if (mutationChange())
-                changed = true;
+            if (Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) {
+                // USE GPT
+                AT_GPTMchange++;
+                if (mutationChangeGPT()) {
+                    GPTMchange++;
+                    changed = true;
+                }
+            } else {
+                // DO NOT USE GPT
+                AT_Mchange++;
+                if (mutationChange()) {
+                    Mchange++;
+                    changed = true;
+                }
+            }
         }
 
         // Insert
         if (Randomness.nextDouble() <= Properties.P_TEST_INSERT) {
             logger.debug("Mutation: insert");
-            if (mutationInsert())
-                changed = true;
+            if (Randomness.nextDouble() <= Properties.GPT_MUTATION_USAGE_PROBABILITY) {
+                // USE GPT
+                AT_GPTMinsert++;
+                if (mutationInsertGPT()) {
+                    GPTMinsert++;
+                    changed = true;
+                }
+            } else {
+                // DO NOT USE GPT
+                AT_Minsert++;
+                if (mutationInsert()) {
+                    Minsert++;
+                    changed = true;
+                }
+            }
         }
 
         if (changed) {
+            Mchanged++;
             this.increaseNumberOfMutations();
             setChanged(true);
             test.clearCoveredGoals();
@@ -727,47 +784,39 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
         boolean changed = false;
         int lastMutableStatement = getLastMutatableStatement();
+        if (lastMutableStatement > (test.size()-1)) {
+            System.out.println("LAST INDEX UPDATED");
+            lastMutableStatement = test.size()-1;
+        }
         double pl = 1d / (lastMutableStatement + 1);
         TestFactory testFactory = TestFactory.getInstance();
 
         StringBuilder sb = new StringBuilder();
-
-        sb.append("Given this test, and the last line number that identifies the last statement that is allowed to be deleted \n\n" +
-                "return an array of line numbers, symbolizing which lines should be deleted to possibly improve the test case, " +
-                "\n\n an empty array containing no deletions is also appropriate\n\n");
-
-        sb.append("Last line that can be deleted: ").append(lastMutableStatement);
-        sb.append("<<Code>>\n\n");
+        sb.append("I have a test case, and I need to identify which lines could be deleted to potentially improve it. Please return an array of line numbers that can be deleted, based on the following:\n" +
+                "- No statements beyond line " + (lastMutableStatement) + " should be considered for deletion.\n" +
+                "- The array should be in the form [x0, x1, ..., xn], where each xi is a line number.\n" +
+                "- If no lines should be deleted, return an empty array: [].\n" +
+                "- No further explanation is required, just the array of line numbers.\n");
+        sb.append("\n```\n");
         sb.append(test.toCode());
-        System.out.println("GPT Requst\n" + sb.toString());
+        sb.append("\n```\n");
+        //System.out.println("GPT Request\n" + sb.toString() + "\n");
         String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
-        String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+        //String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
 
         try {
-            ArrayList<Integer> linesToDelete = extractArrayFromString(formattedResponse);
-            System.out.println("GPT Reponse\n" + formattedResponse);
+            //System.out.println("GPT Response \n" + initialGPTResponse);
+            ArrayList<Integer> linesToDelete = extractArrayFromString(initialGPTResponse);
 
-            for (int line : linesToDelete) {
-                changed |= deleteStatement(testFactory, line);
+            if ((linesToDelete != null)) {
+                for (int line : linesToDelete) {
+                    changed |= deleteStatement(testFactory, line);
+                }
             }
 
-        } catch(Exception e){
-            System.out.println("Incorrectly generated array to delete");
-            return false;
+        } catch(Exception e) {
+//            System.out.println("Incorrectly generated array to delete");
         }
-
-
-        /*for (int num = lastMutableStatement; num >= 0; num--) {
-
-            if (num >= test.size()) {
-                continue; //in case the delete remove more than one statement
-            }
-
-            // Each statement is deleted with probability 1/l
-            if (Randomness.nextDouble() <= pl) {
-                changed |= deleteStatement(testFactory, num);
-            }
-        }*/
 
         return changed;
     }
@@ -784,21 +833,23 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         TestFactory testFactory = TestFactory.getInstance();
 
         StringBuilder sb = new StringBuilder();
-
-        sb.append("Given this test, and the last line number that identifies the last statement that is allowed to be replaced \n\n" +
-                "return an array of line numbers, symbolizing which lines should be replaced to possibly improve the test case, " +
-                "\n\n an empty array containing no replacements is also appropriate\n\n");
-
-        sb.append("Last line that can be replaced: ").append(lastMutatableStatement);
-        sb.append("<<Code>>\n\n");
+        sb.append("I have a test case, and I need to identify which lines could be changed to potentially improve it. Please return an array of line numbers that can be changed, based on the following:\n" +
+                "- The last line number I provide is the cutoff, and no statements beyond this line should be considered for changing.\n" +
+                "- The array should be in the form [x0, x1, ..., xn], where each xi is a line number.\n" +
+                "- If no lines should be deleted, return an empty array: [].\n" +
+                "- No further explanation is required, just the array of line numbers.\n" +
+                "\n");
+        sb.append("Last allowed line number for changing consideration is: ").append(lastMutatableStatement-1);
+        sb.append("\n```\n");
         sb.append(test.toCode());
-        System.out.println("GPT Requst\n" + sb.toString());
+        sb.append("\n```\n");
+        //System.out.println("GPT Requst\n" + sb.toString());
         String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
-        String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+        //String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
 
         try {
-            ArrayList<Integer> positions = extractArrayFromString(formattedResponse);
-            System.out.println("GPT Reponse\n" + formattedResponse);
+            ArrayList<Integer> positions = extractArrayFromString(initialGPTResponse);
+            //System.out.println("GPT Reponse\n" + initialGPTResponse);
 
             assert (test.isValid());
             for (int position : positions) {
@@ -806,6 +857,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                 if (statement.isReflectionStatement())
                     continue;
                 int oldDistance = statement.getReturnValue().getDistance();
+
                 if (statement.mutate(test, testFactory)) {
                     changed = true;
                     mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
@@ -824,32 +876,119 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                 }
             }
         } catch(Exception e){
-            System.out.println("Incorrectly generated array to delete");
-            return false;
+//            System.out.println("Incorrectly generated array to delete");
         }
 
         return changed;
     }
 
+    /**
+     * Each statement is inserted with probability 1/length
+     *
+     * @return
+     */
+    private boolean mutationInsertGPT() {
+        boolean changed = false;
+        final double ALPHA = Properties.P_STATEMENT_INSERTION; //0.5;
+        int count = 0;
+        TestFactory testFactory = TestFactory.getInstance();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("I have a test case, and I need to identify which lines could be suitable for insertion of random lines to potentially improve it. Please return an array of tuples, consisting of line number and insertion type pairs, based on the following:\n" +
+                "- The array should be in the form [{x0, y0}, {x1, y1}, ..., {xn, yn}], where each xi is a line number, and yn is the type of statement to add.\n" +
+                "- The types of statements to add are identified as follows:\n" +
+                "   - 1 for a random call on the test\n" +
+                "   - 2 for a random call on the environment\n" +
+                "   - 3 for a random variable\n" +
+                "- If no lines are suitable, return an empty array: [].\n" +
+                "- No further explanation is required, just the array of line numbers. Do not add a header for indicating the language used.\n");
+        sb.append("\n```\n");
+        sb.append(test.toCode());
+        sb.append("\n```\n");
+        //System.out.println("GPT Requst\n" + sb.toString());
+        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
+        ArrayList<int[]> linesToDelete = extractTuplesFromString(initialGPTResponse);
+
+        if ((linesToDelete != null)) {
+            for (int[] line : linesToDelete) {
+                changed |= testFactory.insertRandomStatementAtPos(test, line, getLastMutatableStatement());
+            }
+        }
+
+        while (Randomness.nextDouble() <= Math.pow(ALPHA, count)
+                && (!Properties.CHECK_MAX_LENGTH || size() < Properties.CHROMOSOME_LENGTH)) {
+
+            count++;
+            // Insert at position as during initialization (i.e., using helper sequences)
+            int position = testFactory.insertRandomStatement(test, getLastMutatableStatement());
+
+
+            if (position >= 0 && position < test.size()) {
+                changed = true;
+                mutationHistory.addMutationEntry(new TestMutationHistoryEntry(
+                        TestMutationHistoryEntry.TestMutation.INSERTION,
+                        test.getStatement(position)));
+            }
+        }
+        return changed;
+    }
+
     //Move/Delete Later
     public static ArrayList<Integer> extractArrayFromString(String input) {
-        // Remove the "json\n" part and the trailing "\n"
-        String arrayPart = input.replace("json\n", "").replace("\n", "").trim();
+        ArrayList<Integer> numbers = new ArrayList<>();
+
+        String gptContent = "";
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            JsonNode rootNode = objectMapper.readTree(input);
+            JsonNode contentNode = rootNode.path("choices").get(0).path("message").path("content");
+            gptContent = (contentNode.toString()).replace("\"", "");
+//            System.out.println(contentNode);
+        } catch (Exception e) {
+            return numbers;
+        }
+
+//        // Remove the "json\n" part and the trailing "\n"
+//        String arrayPart = input.replace("json\n", "").replace("\n", "").trim();
 
         // Remove the square brackets
-        arrayPart = arrayPart.replace("[", "").replace("]", "");
+        gptContent = gptContent.replace("[", "").replace("]", "");
 
         // Split the string by commas and whitespace
-        String[] numberStrings = arrayPart.split(",\\s*");
+        String[] numberStrings = gptContent.split(",\\s*");
 
         // Convert the string array into an ArrayList of Integers
-        ArrayList<Integer> numbers = new ArrayList<>();
         for (String numberString : numberStrings) {
             numbers.add(Integer.parseInt(numberString));
         }
 
         return numbers;
     }
+
+    public static ArrayList<int[]> extractTuplesFromString(String input) {
+        ArrayList<int[]> numbers = new ArrayList<>();
+
+        String gptContent = "";
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            JsonNode rootNode = objectMapper.readTree(input);
+            JsonNode contentNode = rootNode.path("choices").get(0).path("message").path("content");
+            gptContent = (contentNode.toString()).replace("\"", "");
+//            System.out.println(contentNode);
+            gptContent = gptContent.replaceAll("\\[|]|\\s+", "");
+            String[] pairs = gptContent.split("},\\{");
+            for (String pair : pairs) {
+                pair = pair.replaceAll("[{}]", "");
+                String[] nums = pair.split(",");
+                int[] arr = new int[]{Integer.parseInt(nums[0]), Integer.parseInt(nums[1])};
+                numbers.add(arr);
+            }
+        } catch (Exception e) {
+            return numbers;
+        }
+        return numbers;
+    }
+
     // ----------------------------------
 
     public final static TestChromosomeCollector toTestSuiteCollector = new TestChromosomeCollector();

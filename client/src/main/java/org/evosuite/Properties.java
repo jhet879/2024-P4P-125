@@ -1677,6 +1677,8 @@ public class Properties {
     // goals of the current evosuite run.
     public static boolean skip_fitness_calculation = false;
 
+    // Used to define the probability that gpt is used for performing mutation operations
+    public static double GPT_MUTATION_USAGE_PROBABILITY = 0.2;
 
     // Added - fix for @NotNull annotations issue on evo mailing list
 

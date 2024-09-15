@@ -264,7 +264,7 @@ public class MOSALisa extends AbstractMOSA {
                             testChromosome.setTestCase(tc);
                             testChromosome.set_gpt_status(true);
                             this.calculateFitness(testChromosome);
-                            System.out.println("AF " + testChromosome.getFitness());
+                            //System.out.println("AF " + testChromosome.getFitness());
                             offspringPopulation.add(testChromosome);
                         }
                     }
@@ -477,8 +477,6 @@ public class MOSALisa extends AbstractMOSA {
             int totalGoals = this.getTotalNumberOfGoals();
             int totalCoveredGoals = this.getCoveredGoals().size();
             System.out.println("Exhausted Budget");
-            double coverage = totalGoals == 0 ? 1.0 : ((double) totalCoveredGoals) / ((double) totalGoals);
-            System.out.println("Calculated Coverage = " + coverage);
         }
 
 
@@ -487,10 +485,14 @@ public class MOSALisa extends AbstractMOSA {
         System.out.println("Sucessful GPT Calls: " + successfulCarvedGPTCalls + "/" + totalGPTCalls);
         System.out.println("Total GPT Tests Added to Offspring Population: " + gptTestsAddedToOffSpringPop);
         System.out.println("Running sum of gpt tests added to sorted population: " + totalGPTTestsAddedToSortedPop);
+        System.out.println("STANDARD MUTATION STATS:");
+        System.out.println("DELETES: " + TestChromosome.Mdelete + "/" + TestChromosome.AT_Mdelete + " CHANGES: " + TestChromosome.Mchange + "/" + TestChromosome.AT_Mchange + " INSERTS: " + TestChromosome.Minsert + "/" + TestChromosome.AT_Minsert);
+        System.out.println("GPT MUTATION STATS:");
+        System.out.println("DELETES: " + TestChromosome.GPTMdelete + "/" + TestChromosome.AT_GPTMdelete + " CHANGES: " + TestChromosome.GPTMchange + "/" + TestChromosome.AT_GPTMchange + " INSERTS: " + TestChromosome.GPTMinsert + "/" + TestChromosome.AT_GPTMinsert);
+        System.out.println("TOTAL SUCCESSFUL MUTATIONS: " + TestChromosome.Mchanged);
 
         this.notifySearchFinished();
     }
-
     /**
      * Calculates the fitness for the given individual. Also updates the list of targets to cover,
      * as well as the population of best solutions in the archive.
