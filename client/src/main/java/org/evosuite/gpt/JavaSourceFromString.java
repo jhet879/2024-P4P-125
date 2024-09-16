@@ -13,10 +13,10 @@ import java.nio.file.Paths;
 class JavaSourceFromString extends SimpleJavaFileObject {
     private final String code;
 
-    public JavaSourceFromString(String name) {
+    public JavaSourceFromString(String name, String outputDir) {
         super(URI.create("string:///" + name.replace('.', '/') + Kind.SOURCE.extension), Kind.SOURCE);
         String content = "";
-        Path filePath = Paths.get(Properties.OUTPUT_DIR + "//ClassTest.java");
+        Path filePath = Paths.get(outputDir + "//" + name +".java");
         try {
             // Read all bytes from the file and convert them to a string
             content = new String(Files.readAllBytes(filePath));

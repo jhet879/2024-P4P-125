@@ -32,6 +32,7 @@ import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.gpt.CompileGentests;
 import org.evosuite.gpt.GPTRequest;
 import org.evosuite.junit.JUnitAnalyzer;
 import org.evosuite.junit.writer.TestSuiteWriter;
@@ -259,18 +260,19 @@ public class TestSuiteGenerator {
             sb.append("1. Review the implementation of each class to ensure it behaves as expected.\n");
             sb.append("2. If behaviour in the classes is found to be incorrect, modify the existing tests\n");
             sb.append("3. Do NOT add new tests, only modify the existing tests\n");
-            sb.append("4. The adjustments in the test suite should be capable of detecting the identified behavioural errors when the test suite is executed.\n");
-            sb.append("5. No explanation is required, just return the modified test suite.\n");
-            sb.append("6. If no modification is required, return an empty string.\n");
+            sb.append("4. Do NOT modify anything other than the tests, leave EVERYTHING else alone.\n");
+            sb.append("5. The adjustments in the test suite should be capable of detecting the identified behavioural errors when the test suite is executed.\n");
+            sb.append("6. No explanation is required, just return the modified test suite.\n");
+            sb.append("7. If no modification is required, return an empty string.\n");
             sb.append("Objective: Ensure that the test suite robustly checks and catches any functional discrepancies in the classes under test.\n");
 
             sb.append("Class Under Test:\n");
-            sb.append("```java\n");
+            sb.append("java ```\n");
             sb.append(classUnderTestString);
             sb.append("\n```\n");
 
             sb.append("JUnit 4 Test Suite:\n");
-            sb.append("```java\n");
+            sb.append("java ```\n");
             sb.append(generatedTestSuiteString);
             sb.append("\n```\n");
 
@@ -278,9 +280,36 @@ public class TestSuiteGenerator {
             String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
             System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
             String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+            // TODO FIND A BETTER SOLUTION TO OMITTING THE UNWANTED ESCAPE CHARACTERS THAT GPT ADDS
+            formattedResponse = formattedResponse.replace("\\r", "\r");
+            formattedResponse = formattedResponse.replace("(\\\"", "(\"");
+            formattedResponse = formattedResponse.replace("\\\")", "\")");
+            formattedResponse = formattedResponse.replace("\\\", ", "\", ");
+            formattedResponse = formattedResponse.replace("\\\";", "\";");
+            formattedResponse = formattedResponse.replace("\\\"\"", "\"\"");
+            formattedResponse = formattedResponse.replace("java\n", "");
+
+            String outputName = name+"_REGRESSION";
+            formattedResponse = formattedResponse.replace(name+" ", name+"_REGRESSION ");
+            String outputPath = Properties.TEST_DIR + "\\" + Properties.PROJECT_PREFIX;
+
+
             System.out.println("GPT Formatted Response:\n" + formattedResponse);
+            GPTRequest.writeGPTtoFile(formattedResponse, outputName, outputPath);
 
+            boolean valid_gpt_code = false;
 
+            // See if the test compiles
+            try {
+                valid_gpt_code = CompileGentests.verifyCompilation(Properties.CP + "/" + Properties.PROJECT_PREFIX, outputName, outputPath);
+            } catch (Exception e) {
+            }
+
+            if (!valid_gpt_code) {
+                System.out.println("Failed to create regression-mode tests!");
+            } else {
+                System.out.println("Created regression-mode tests!");
+            }
 
 
 

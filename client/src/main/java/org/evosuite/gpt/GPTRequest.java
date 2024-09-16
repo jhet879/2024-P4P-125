@@ -103,6 +103,14 @@ public class GPTRequest {
         }
     }
 
+    public static void writeGPTtoFile(String gptReponse, String fileName, String outputPath){
+        try (PrintWriter out = new PrintWriter(outputPath + "\\" + fileName + ".java")) {
+            out.println(gptReponse);
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static String cleanResponse(String gptResponse){
         // Find the index of the first newline character
         int newlineIndex = gptResponse.indexOf('\n');

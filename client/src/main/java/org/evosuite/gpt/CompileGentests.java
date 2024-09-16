@@ -13,8 +13,11 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
+import java.nio.file.Paths;
+import java.nio.file.Path;
 
 public class CompileGentests {
     public static List<TestCase> compileTests(String testClassPath) throws ClassNotFoundException, MalformedURLException {
@@ -30,7 +33,7 @@ public class CompileGentests {
         // Prepare the compilation task with the classpath
         Iterable<String> options = Arrays.asList("-classpath", testClassPath);
         JavaCompiler.CompilationTask task = compiler.getTask(writer, null, null, options, null,
-                Arrays.asList(new JavaSourceFromString("ClassTest")));
+                Arrays.asList(new JavaSourceFromString("ClassTest", Properties.OUTPUT_DIR)));
 
         // Compile the source code
         boolean success = task.call();
@@ -61,6 +64,53 @@ public class CompileGentests {
             System.out.println("Compilation failed:");
             //System.out.println(writer.toString());
             return null;
+        }
+    }
+
+    public static boolean verifyCompilation(String testClassPath, String className, String outputDir) throws ClassNotFoundException, MalformedURLException {
+        // Get the Java compiler
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        // Prepare a writer to capture compiler output
+        StringWriter writer = new StringWriter();
+
+        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+        String classOutputDir = "../target/test-classes";
+        Path classOutputPath = Paths.get(classOutputDir);
+        try {
+            //TODO MAKE IT DELETE THE FILE IF IT ALREADY EXISTS
+            if (Files.notExists(classOutputPath)) {
+                Files.createDirectories(classOutputPath);  // Creates the directory along with any necessary parent directories
+            }
+            fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(classOutputDir)));
+        } catch (IOException e) {
+            System.out.println("Failed to set output directory: " + e.getMessage());
+        }
+
+        //TODO MAKE THIS AUTOMATIC
+        testClassPath = "../examplCodez/target/classes;../target/dependency/junit-4.12.jar;../target/dependency/hamcrest-core-1.3.jar;../runtime/target/classes;../target/test-classes";
+
+        // Prepare the compilation task with the classpath
+        Iterable<String> options = Arrays.asList("-classpath", testClassPath);
+
+        JavaCompiler.CompilationTask task = compiler.getTask(writer, fileManager, null, options, null,
+                Arrays.asList(new JavaSourceFromString(className.replace("REGRESSION", "scaffolding"), outputDir)));
+        // Compile the source code
+        boolean success = task.call();
+
+        JavaCompiler.CompilationTask task1 = compiler.getTask(writer, null, null, options, null,
+                Arrays.asList(new JavaSourceFromString(className, outputDir)));
+
+        // Compile the source code
+        success = task1.call();
+
+        if (success) {
+            System.out.println("Compilation complete.");
+            return true;
+        } else {
+            // Print compiler errors
+            System.out.println("Compilation failed:");
+            //System.out.println(writer.toString());
+            return false;
         }
     }
 }
