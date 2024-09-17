@@ -347,6 +347,58 @@ public class MOSALisa extends AbstractMOSA {
         return  carvedTestCases;
     }
 
+    private List<TestCase> invokeGPTInitialPop(Set<TestFitnessFunction> goals) {
+        System.out.println("Invoking GPT...\n");
+        System.out.println("Fitness Functions:");
+        System.out.println(goals);
+        String pathToClass = Properties.CP + "/" + Properties.PROJECT_PREFIX + "/" + extractClassName(Properties.TARGET_CLASS) + ".class";
+        System.out.println("Path to Class: " + pathToClass);
+        // Decompile the class file and get it as a string
+        String classAsString = JDecompiler.decompileAndPrintClassFiles(pathToClass);
+
+        // Prepare the request for ChatGPT
+        StringBuilder sb = new StringBuilder();
+        sb.append("Given the Java class under test, lines of the class where test goals have not been met, ")
+                .append("generate ")
+                .append(Properties.POPULATION)
+                .append(" stand-alone (no @Before, all the tests are self-contained) tests that can ")
+                .append("cover these goals, combine tests wherever possible. Call the class, 'ClassTest'. ")
+                .append("Do not add any import/package statements, only add imports required for JUnit and ")
+                .append("any exceptions that are used. Use org.junit.Test and org.junit.Assert.* for the imports");
+
+        sb.append("Class under test:\n")
+                .append("```\n")
+                .append(classAsString)  // Escape newlines in the class content
+                .append("\n```\n");
+        sb.append("linesToCover:\n");
+        for (TestFitnessFunction test_func : goals) {
+            sb.append(test_func + "\n");
+        }
+
+        //System.out.println(sb.toString());
+
+        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
+        //System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
+
+        String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+        //System.out.println("GPT formatted Response:\n" + formattedResponse);
+        formattedResponse = GPTRequest.cleanResponse(formattedResponse);
+        formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
+        GPTRequest.writeGPTtoFile(formattedResponse);
+        List<TestCase> carvedTestCases;
+
+        // TODO:  ADD ERROR CHECKING FOR THIS STEP
+        try {
+            carvedTestCases = CompileGentests.compileTests(Properties.CP + "/" + Properties.PROJECT_PREFIX);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return  carvedTestCases;
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -416,6 +468,54 @@ public class MOSALisa extends AbstractMOSA {
         logger.debug("Covered goals = {}", goalsManager.getCoveredGoals().size());
         logger.debug("Current goals = {}", goalsManager.getCurrentGoals().size());
         logger.debug("Uncovered goals = {}", goalsManager.getUncoveredGoals().size());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void initializePopulation() {
+        logger.info("executing initializePopulation function");
+
+        this.notifySearchStarted();
+        this.currentIteration = 0;
+
+        if (!Properties.USE_GPT_INITIAL_POPULATION) {
+            // Create a random parent population P0
+            this.generateInitialPopulation(Properties.POPULATION);
+        } else {
+            Properties.SEARCH_BUDGET = 3600;
+            boolean success = false;
+            Set<TestFitnessFunction> goals;
+            goals = this.goalsManager.getCurrentGoals();
+            while (success == false) {
+                int carvedTestsForInitialPop = 0;
+                this.population.clear();
+                List<TestCase> gptTestCases = invokeGPTInitialPop(goals);
+                if (gptTestCases != null) {
+                    successfulCarvedGPTCalls++;
+                    System.out.println("Carved tests: " + gptTestCases.size());
+                    for (TestCase tc : gptTestCases) {
+                        carvedTestsForInitialPop++;
+                        TestChromosome testChromosome = new TestChromosome();
+                        testChromosome.setTestCase(tc);
+                        testChromosome.set_gpt_status(true);
+                        this.calculateFitness(testChromosome);
+                        //System.out.println("AF " + testChromosome.getFitness());
+                        population.add(testChromosome);
+                    }
+                    success = true;
+                } else {
+                    System.out.println("Failed to generate tests!");
+                }
+            }
+            System.out.println("Carved: " + successfulCarvedGPTCalls + " tests for the initial population");
+        }
+
+
+        // Determine fitness
+        this.calculateFitness();
+        this.notifyIteration();
     }
 
     /**

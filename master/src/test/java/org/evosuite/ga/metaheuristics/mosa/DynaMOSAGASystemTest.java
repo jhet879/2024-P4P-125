@@ -43,7 +43,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         Properties.IS_RUNNING_A_SYSTEM_TEST = true;
         Properties.NEW_STATISTICS = true;
         Properties.STATISTICS_BACKEND = Properties.StatisticsBackend.DEBUG;
-        Properties.JUNIT_TESTS = true;
+//        Properties.JUNIT_TESTS = true;
 
         if (!useML) {
             Properties.ALGORITHM = Properties.Algorithm.DYNAMOSA;
@@ -70,7 +70,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
 //                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_gpt_crossover", "-use_gpt_initial_pop"};
 
 
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_gpt_non_regression"};
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_gpt_initial_pop"};
 
 
         // display stats?
@@ -124,7 +124,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
     @Test
     public void testMOSALisa() {
         //Console.SystemOutPritnln("CANOICAL Name: " + stack.class.);
-        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.RecursiveParser", true);
+        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.IncorrectOperations", true);
 
         Assert.assertNotEquals(population.size(), 0);
     }
@@ -136,37 +136,37 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         Assert.assertNotEquals(population.size(), 0);
     }
 
-    @Test
-    public void testGPT() {
-        Dotenv dotenv = Dotenv.load();
-        Properties.GPT_KEY = dotenv.get("GPT_TOKEN");
-
-        StringBuilder sb = new StringBuilder();
-//        sb.append("Who is the president of the United States?");
-//        sb.append("I have a test case, and I need to identify which lines could be deleted to potentially improve it. Please return an array of line numbers that can be deleted, based on the following:\n" +
-//                "- The last line number I provide is the cutoff, and no statements beyond this line should be considered for deletion.\n" +
-//                "- The array should be in the form [x0, x1, ..., xn], where each xi is a line number.\n" +
-//                "- If no lines should be deleted, return an empty array: [].\n" +
-//                "No further explanation is required, just the array of line numbers.\n" +
-//                "Last allowed line number for deletion consideration is : 2\n");
-//        sb.append("```\n");
-//        sb.append("RecursiveParser recursiveParser0 = new RecursiveParser();\n");
-//        sb.append("String string0 = \"\";\n");
-//        sb.append("recursiveParser0.parse(string0);\n");
-//        sb.append("```\n");
-//        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
-        String initialGPTResponse = GPTRequest.chatGPT("Hello! My name is Robert!");
-        System.out.println(initialGPTResponse);
-        Assert.assertNotNull(initialGPTResponse);
-        initialGPTResponse = GPTRequest.chatGPT("What is the last thing I asked you?");
-        System.out.println(initialGPTResponse);
-        Assert.assertNotNull(initialGPTResponse);
-//        System.out.println("UNFORMATTED RESPONSE:");
+//    @Test
+//    public void testGPT() {
+//        Dotenv dotenv = Dotenv.load();
+//        Properties.GPT_KEY = dotenv.get("GPT_TOKEN");
+//
+//        StringBuilder sb = new StringBuilder();
+////        sb.append("Who is the president of the United States?");
+////        sb.append("I have a test case, and I need to identify which lines could be deleted to potentially improve it. Please return an array of line numbers that can be deleted, based on the following:\n" +
+////                "- The last line number I provide is the cutoff, and no statements beyond this line should be considered for deletion.\n" +
+////                "- The array should be in the form [x0, x1, ..., xn], where each xi is a line number.\n" +
+////                "- If no lines should be deleted, return an empty array: [].\n" +
+////                "No further explanation is required, just the array of line numbers.\n" +
+////                "Last allowed line number for deletion consideration is : 2\n");
+////        sb.append("```\n");
+////        sb.append("RecursiveParser recursiveParser0 = new RecursiveParser();\n");
+////        sb.append("String string0 = \"\";\n");
+////        sb.append("recursiveParser0.parse(string0);\n");
+////        sb.append("```\n");
+////        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
+//        String initialGPTResponse = GPTRequest.chatGPT("Hello! My name is Robert!");
 //        System.out.println(initialGPTResponse);
-//        System.out.println("CODE ONLY:");
-//        System.out.println(GPTRequest.get_code_only(initialGPTResponse));
-
-
-    }
+//        Assert.assertNotNull(initialGPTResponse);
+//        initialGPTResponse = GPTRequest.chatGPT("What is the last thing I asked you?");
+//        System.out.println(initialGPTResponse);
+//        Assert.assertNotNull(initialGPTResponse);
+////        System.out.println("UNFORMATTED RESPONSE:");
+////        System.out.println(initialGPTResponse);
+////        System.out.println("CODE ONLY:");
+////        System.out.println(GPTRequest.get_code_only(initialGPTResponse));
+//
+//
+//    }
 
 }
