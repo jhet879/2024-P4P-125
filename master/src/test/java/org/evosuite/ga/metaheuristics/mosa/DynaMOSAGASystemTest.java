@@ -43,7 +43,8 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
         Properties.IS_RUNNING_A_SYSTEM_TEST = true;
         Properties.NEW_STATISTICS = true;
         Properties.STATISTICS_BACKEND = Properties.StatisticsBackend.DEBUG;
-//        Properties.JUNIT_TESTS = true;
+        // SET TO TRUE TO ENABLE SAVING OUTPUT TO FILE
+        Properties.JUNIT_TESTS = false;
 
         if (!useML) {
             Properties.ALGORITHM = Properties.Algorithm.DYNAMOSA;
@@ -70,7 +71,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
 //                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_gpt_crossover", "-use_gpt_initial_pop"};
 
 
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_gpt_initial_pop"};
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_gpt_crossover"};
 
 
         // display stats?

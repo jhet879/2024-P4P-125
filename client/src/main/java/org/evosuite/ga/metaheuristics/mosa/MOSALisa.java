@@ -25,6 +25,8 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
+import org.evosuite.ga.operators.crossover.CrossOverFunction;
+import org.evosuite.ga.operators.crossover.GPTCrossOver;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
 import org.evosuite.gpt.CompileGentests;
 import org.evosuite.gpt.JDecompiler;
@@ -62,6 +64,7 @@ public class MOSALisa extends AbstractMOSA {
     public int successfulCarvedGPTCalls = 0;
     public int gptTestsAddedToOffSpringPop = 0;
     public int totalGPTTestsAddedToSortedPop = 0;
+    public int totalCrossoverCalls = 0;
 
     /**
      * Manager to determine the test goals to consider at each generation
@@ -212,6 +215,7 @@ public class MOSALisa extends AbstractMOSA {
             // apply crossover
             if (Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
                 try {
+                    totalCrossoverCalls++;
                     this.crossoverFunction.crossOver(offspring1, offspring2);
                 } catch (ConstructionFailedException e) {
                     logger.debug("CrossOver failed.");
@@ -525,6 +529,10 @@ public class MOSALisa extends AbstractMOSA {
     public void generateSolution() {
         logger.debug("executing generateSolution function");
 
+        if (Properties.USE_GPT_CROSSOVER) {
+            this.setCrossOverFunction(new GPTCrossOver());
+        }
+
         // Set up the targets to cover, which are initially free of any control dependencies.
         // We are trying to optimize for multiple targets at the same time.
         this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
@@ -589,6 +597,7 @@ public class MOSALisa extends AbstractMOSA {
         System.out.println("GPT MUTATION STATS:");
         System.out.println("DELETES: " + TestChromosome.GPTMdelete + "/" + TestChromosome.AT_GPTMdelete + " CHANGES: " + TestChromosome.GPTMchange + "/" + TestChromosome.AT_GPTMchange + " INSERTS: " + TestChromosome.GPTMinsert + "/" + TestChromosome.AT_GPTMinsert);
         System.out.println("TOTAL SUCCESSFUL MUTATIONS: " + TestChromosome.Mchanged);
+        System.out.println("CROSSOVER STATS: " + GPTCrossOver.succesfulGPTCrossovers + "/" + totalCrossoverCalls + " WERE DONE WITH GPT, OUT OF " + GPTCrossOver.gptCrossoverAttempts + " TRIED AS A WHOLE: " + GPTCrossOver.testGPTCrossoverFNCalls);
 
         this.notifySearchFinished();
     }

@@ -1680,6 +1680,9 @@ public class Properties {
     // Used to define the probability that gpt is used for performing mutation operations
     public static double GPT_MUTATION_USAGE_PROBABILITY = 0.2;
 
+    // Used to define the probability that gpt is used for performing crosover operations
+    public static double GPT_CROSSOVER_USAGE_PROBABILITY = 0.4;
+
     @Parameter(key = "use_codamosa", description = "Disable/Enable the usage of the CODAMOSA implementation in MOSALISA")
     public static boolean USE_CODAMOSA = false;
 
