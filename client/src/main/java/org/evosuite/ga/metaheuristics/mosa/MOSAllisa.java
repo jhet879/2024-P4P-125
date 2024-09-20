@@ -25,11 +25,9 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
-import org.evosuite.ga.operators.crossover.CrossOverFunction;
 import org.evosuite.ga.operators.crossover.GPTCrossOver;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
 import org.evosuite.gpt.CompileGentests;
-import org.evosuite.gpt.JDecompiler;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -41,7 +39,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -57,11 +54,11 @@ import org.evosuite.gpt.GPTRequest;
  *
  * @author Annibale Panichella, Fitsum M. Kifetew, Paolo Tonella
  */
-public class MOSALisa extends AbstractMOSA {
+public class MOSAllisa extends AbstractMOSA {
 
     private static final long serialVersionUID = 146182080947267628L;
 
-    private static final Logger logger = LoggerFactory.getLogger(MOSALisa.class);
+    private static final Logger logger = LoggerFactory.getLogger(MOSAllisa.class);
 
     public int totalGPTCalls = 0;
     public int successfulCarvedGPTCalls = 0;
@@ -92,7 +89,7 @@ public class MOSALisa extends AbstractMOSA {
      *
      * @param factory
      */
-    public MOSALisa(ChromosomeFactory<TestChromosome> factory) {
+    public MOSAllisa(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
     }
 
@@ -273,14 +270,12 @@ public class MOSALisa extends AbstractMOSA {
                         List<TestCase> gptTestCases = invokeGPT(rankedGoals);
                         if (gptTestCases != null) {
                             successfulCarvedGPTCalls++;
-                            System.out.println("Carved tests: " + gptTestCases.size());
                             for (TestCase tc : gptTestCases) {
                                 gptTestsAddedToOffSpringPop++;
                                 TestChromosome testChromosome = new TestChromosome();
                                 testChromosome.setTestCase(tc);
                                 testChromosome.set_gpt_status(true);
                                 this.calculateFitness(testChromosome);
-                                //System.out.println("AF " + testChromosome.getFitness());
                                 offspringPopulation.add(testChromosome);
                             }
                         }
@@ -340,7 +335,8 @@ public class MOSALisa extends AbstractMOSA {
         GPTRequest.writeGPTtoFile(formattedResponse);
 
         try {
-            carvedTestCases = CompileGentests.compileTests(Properties.CP + "/" + Properties.PROJECT_PREFIX);
+            // Carve the testcases from the gpt response
+            carvedTestCases = CompileGentests.compileAndCarveTests(Properties.CP);
         } catch (Exception e) {
             return carvedTestCases;
         }
@@ -372,7 +368,8 @@ public class MOSALisa extends AbstractMOSA {
         GPTRequest.writeGPTtoFile(formattedResponse);
 
         try {
-            carvedTestCases = CompileGentests.compileTests(Properties.CP + "/" + Properties.PROJECT_PREFIX);
+            // Carve the testcases from the gpt response
+            carvedTestCases = CompileGentests.compileAndCarveTests(Properties.CP);
         } catch (Exception e) {
             return carvedTestCases;
         }
@@ -513,7 +510,7 @@ public class MOSALisa extends AbstractMOSA {
         // We are trying to optimize for multiple targets at the same time.
         this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
 
-        LoggingUtils.getEvoLogger().info("* Initial Number of Goals in MOSALisa = " +
+        LoggingUtils.getEvoLogger().info("* Initial Number of Goals in MOSAllisa = " +
                 this.goalsManager.getCurrentGoals().size() + " / " + this.getUncoveredGoals().size());
 
         logger.debug("Initial Number of Goals = " + this.goalsManager.getCurrentGoals().size());
