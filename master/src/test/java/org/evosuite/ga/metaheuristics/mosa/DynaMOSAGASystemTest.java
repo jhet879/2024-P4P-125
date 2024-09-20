@@ -70,15 +70,15 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
 //        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes",
 //                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_gpt_crossover", "-use_gpt_initial_pop"};
 
-
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_gpt_crossover"};
+        String pathToCut = "D:\\Documents\\UOA\\2024\\Part 4 Project\\Repos\\2024-P4P-125\\examplCodez\\src\\main\\java\\mosalisa\\IncorrectOperations.java";
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_initial_pop", "-path_to_cut", pathToCut};
 
 
         // display stats?
 //        StringBuilder s = new StringBuilder();
 //        s.append(RuntimeVariable.Coverage);
 //        s.append(",");
-//        s.append(RuntimeVariable.BranchCoverage);
+//        s.append(RuntimeVariable.BranchCoverage);werq
 //        s.append(",");
 //        s.append(RuntimeVariable.LineCoverage);
 //        s.append(",");

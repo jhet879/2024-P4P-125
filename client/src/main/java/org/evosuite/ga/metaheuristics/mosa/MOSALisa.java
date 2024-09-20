@@ -40,7 +40,10 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 
 import org.evosuite.gpt.GPTRequest;
@@ -65,6 +68,17 @@ public class MOSALisa extends AbstractMOSA {
     public int gptTestsAddedToOffSpringPop = 0;
     public int totalGPTTestsAddedToSortedPop = 0;
     public int totalCrossoverCalls = 0;
+
+    static String algo_test_gen_prompt = "Given the Java class under test, lines of the class where test goals have not been met " +
+            "generate stand-alone (no @Before, all the tests are self-contained) tests that can cover these goals, combine " +
+            "tests wherever possible. Call the class, 'ClassTest'. Do not add any import/package statements, only add imports " +
+            "required for JUnit and any exceptions that are used.\nClass under test:\n```\n%s\n```\nlinesToCover:\n%s";
+
+    static String initial_test_gen_prompt = "Given the Java class under test, lines of the class where test goals have " +
+            "not been met, generate %d stand-alone (no @Before, all the tests are self-contained) tests that can cover " +
+            "these goals, combine tests wherever possible. Call the class, 'ClassTest'. Do not add any import/package " +
+            "statements, only add imports required for JUnit and any exceptions that are used. Use org.junit.Test and " +
+            "org.junit.Assert.* for the imports.\nClass under test:\n```\n%s\n```\nlinesToCover:\n%s";
 
     /**
      * Manager to determine the test goals to consider at each generation
@@ -302,104 +316,66 @@ public class MOSALisa extends AbstractMOSA {
     }
 
     private List<TestCase> invokeGPT(LinkedHashMap<TestFitnessFunction, Double> rankedGoals) {
-        System.out.println("Invoking GPT...\n");
-        //System.out.println("Fitness Functions:");
-        //System.out.println(rankedGoals);
-        String pathToClass = Properties.CP + "/" + Properties.PROJECT_PREFIX + "/" + extractClassName(Properties.TARGET_CLASS) + ".class";
-        System.out.println("Path to Class: " + pathToClass);
-        // Decompile the class file and get it as a string
-        String classAsString = JDecompiler.decompileAndPrintClassFiles(pathToClass);
-
+        List<TestCase> carvedTestCases = new ArrayList<>();
+        // Get the class as a string
+        String classAsString;
+        try {
+            classAsString = new String(Files.readAllBytes(Paths.get(Properties.PATH_TO_CUT)));
+        } catch (IOException e) {
+            System.out.println("IO ERROR");
+            return carvedTestCases;
+        }
         // Prepare the request for ChatGPT
         StringBuilder sb = new StringBuilder();
-        sb.append("Given the Java class under test, lines of the class where test goals have not been met, ")
-                .append("generate stand-alone (no @Before, all the tests are self-contained) tests that can ")
-                .append("cover these goals, combine tests wherever possible. Call the class, 'ClassTest'. ")
-                .append("Do not add any import/package statements, only add imports required for JUnit and ")
-                .append("any exceptions that are used. ");
-
-        sb.append("Class under test:\n")
-                .append("```\n")
-                .append(classAsString)  // Escape newlines in the class content
-                .append("\n```\n");
-        sb.append("linesToCover:\n");
         for (TestFitnessFunction key : rankedGoals.keySet()) {
             sb.append(key + "\n");
         }
-
-        //System.out.println(sb.toString());
-
-        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
-        //System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
-
+        String gptString = String.format(algo_test_gen_prompt, classAsString, sb);
+        // Make call to GPT
+        String initialGPTResponse = GPTRequest.chatGPT(gptString);
         String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
-        //System.out.println("GPT formatted Response:\n" + formattedResponse);
         formattedResponse = GPTRequest.cleanResponse(formattedResponse);
+        // TODO DETERMINE IF THIS IS SUFFICIENT
         formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
         GPTRequest.writeGPTtoFile(formattedResponse);
-        List<TestCase> carvedTestCases;
 
-        // TODO:  ADD ERROR CHECKING FOR THIS STEP
         try {
             carvedTestCases = CompileGentests.compileTests(Properties.CP + "/" + Properties.PROJECT_PREFIX);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            return carvedTestCases;
         }
-
         return  carvedTestCases;
     }
 
     private List<TestCase> invokeGPTInitialPop(Set<TestFitnessFunction> goals) {
-        System.out.println("Invoking GPT...\n");
-        System.out.println("Fitness Functions:");
-        System.out.println(goals);
-        String pathToClass = Properties.CP + "/" + Properties.PROJECT_PREFIX + "/" + extractClassName(Properties.TARGET_CLASS) + ".class";
-        System.out.println("Path to Class: " + pathToClass);
-        // Decompile the class file and get it as a string
-        String classAsString = JDecompiler.decompileAndPrintClassFiles(pathToClass);
-
+        List<TestCase> carvedTestCases = new ArrayList<>();
+        // Get the class as a string
+        String classAsString;
+        try {
+            classAsString = new String(Files.readAllBytes(Paths.get(Properties.PATH_TO_CUT)));
+        } catch (IOException e) {
+            System.out.println("IO ERROR");
+            return carvedTestCases;
+        }
         // Prepare the request for ChatGPT
         StringBuilder sb = new StringBuilder();
-        sb.append("Given the Java class under test, lines of the class where test goals have not been met, ")
-                .append("generate ")
-                .append(Properties.POPULATION)
-                .append(" stand-alone (no @Before, all the tests are self-contained) tests that can ")
-                .append("cover these goals, combine tests wherever possible. Call the class, 'ClassTest'. ")
-                .append("Do not add any import/package statements, only add imports required for JUnit and ")
-                .append("any exceptions that are used. Use org.junit.Test and org.junit.Assert.* for the imports");
-
-        sb.append("Class under test:\n")
-                .append("```\n")
-                .append(classAsString)  // Escape newlines in the class content
-                .append("\n```\n");
-        sb.append("linesToCover:\n");
         for (TestFitnessFunction test_func : goals) {
             sb.append(test_func + "\n");
         }
-
-        //System.out.println(sb.toString());
-
-        String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
-        //System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
-
+        String gptString = String.format(initial_test_gen_prompt, Properties.POPULATION, classAsString, sb);
+        // Make request to GPT
+        String initialGPTResponse = GPTRequest.chatGPT(gptString);
         String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
-        //System.out.println("GPT formatted Response:\n" + formattedResponse);
         formattedResponse = GPTRequest.cleanResponse(formattedResponse);
+        // TODO DETERMINE IF THIS IS SUFFICIENT
         formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
         GPTRequest.writeGPTtoFile(formattedResponse);
-        List<TestCase> carvedTestCases;
 
-        // TODO:  ADD ERROR CHECKING FOR THIS STEP
         try {
             carvedTestCases = CompileGentests.compileTests(Properties.CP + "/" + Properties.PROJECT_PREFIX);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            return carvedTestCases;
         }
-
         return  carvedTestCases;
     }
 

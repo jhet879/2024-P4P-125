@@ -245,6 +245,19 @@ public class EvoSuite {
                 }
             }
 
+            if (line.hasOption("path_to_cut")) {
+                try {
+                    File file = new File(line.getOptionValue("path_to_cut"));
+                    if (!file.exists()) {
+                        throw new IOException("File does not exist");
+                    } else {
+                        Properties.getInstance().setValue("path_to_cut", line.getOptionValue("path_to_cut"));
+                    }
+                } catch (Exception e) {
+                    throw new Error("Invalid value for class under test path: " + e.getMessage());
+                }
+            }
+
 
             if (line.hasOption("parallel")) {
                 String[] values = line.getOptionValues("parallel");

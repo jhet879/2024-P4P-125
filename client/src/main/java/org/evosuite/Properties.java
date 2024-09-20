@@ -1698,6 +1698,9 @@ public class Properties {
     @Parameter(key = "use_gpt_non_regression", description = "Disable/Enable the usage of the gpt for generating non-regression mode testsin MOSALISA")
     public static boolean USE_GPT_NON_REGRESSION = false;
 
+    @Parameter(key = "path_to_cut", description = "Path to class under test Java file")
+    public static String PATH_TO_CUT = null;
+
 
     // Added - fix for @NotNull annotations issue on evo mailing list
 

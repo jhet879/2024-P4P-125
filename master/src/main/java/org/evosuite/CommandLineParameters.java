@@ -138,6 +138,7 @@ public class CommandLineParameters {
         Option use_gpt_crossover = new Option("use_gpt_crossover", false,"Needed to enable the use of gpt for crossover in MOSALISA");
         Option use_gpt_initial_pop = new Option("use_gpt_initial_pop", false,"Needed to enable the use of gpt for the initial population in MOSALISA");
         Option use_gpt_non_regression = new Option("use_gpt_non_regression", false,"Needed to enable the use of gpt for non-regression mode in MOSALISA");
+        Option path_to_cut = new Option("path_to_cut", true,"Path to class under test Java file");
 
         for (Option option : generateOptions) {
             options.addOption(option);
@@ -173,6 +174,7 @@ public class CommandLineParameters {
         options.addOption(use_gpt_crossover);
         options.addOption(use_gpt_initial_pop);
         options.addOption(use_gpt_non_regression);
+        options.addOption(path_to_cut);
 
         return options;
     }
