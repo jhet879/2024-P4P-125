@@ -549,7 +549,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      * @param currentPopulation The current population of individuals.
      * @return A sorted map of TestFitnessFunctions and fitness values.
      */
-    public LinkedHashMap<TestFitnessFunction, Double> getLowFitnessBranches(List<TestChromosome> currentPopulation) {
+    public Set<TestFitnessFunction> getLowFitnessBranches(List<TestChromosome> currentPopulation) {
         // Get the best individual from the current population
         TestChromosome bestIndividual = currentPopulation.get(0);
         LinkedHashMap<TestFitnessFunction, Double> rankedGoals = new LinkedHashMap<TestFitnessFunction, Double>();
@@ -558,9 +558,11 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
             //System.out.println(branch.toString() + " Fitness: " + branch.getFitness(bestIndividual));
             rankedGoals.put(branch, branch.getFitness(bestIndividual));
         }
+        rankedGoals = sortByValues(rankedGoals);
+
         //System.out.println(rankedGoals);
         //.out.println(sortByValues(rankedGoals));
-        return sortByValues(rankedGoals);
+        return rankedGoals.keySet();
     }
 
     /**

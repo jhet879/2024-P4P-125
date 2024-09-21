@@ -21,7 +21,7 @@ public class CompileGentests {
     public static String hamcrest_path = "target/dependency/hamcrest-core-1.3.jar";
     private static boolean first_use = true;
 
-    public static List<TestCase> compileAndCarveTests(String cutClassPath) throws ClassNotFoundException, MalformedURLException {
+    public static List<TestCase> compileAndCarveTests(String cutClassPath) {
         // Modifify the links to the jar paths if it is a system test
         if (Properties.IS_RUNNING_A_SYSTEM_TEST && first_use){
             junit_path = "../"+junit_path;
@@ -59,8 +59,14 @@ public class CompileGentests {
         if (success) {
             // Load the class
             File classesDir = new File(cutClassPath);
-            URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { classesDir.toURI().toURL() });
-            Class<?> dynamicClass = Class.forName("ClassTest", true, classLoader);
+            Class<?> dynamicClass;
+            try {
+                URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { classesDir.toURI().toURL() });
+                dynamicClass = Class.forName("ClassTest", true, classLoader);
+            } catch (Exception e) {
+                System.out.println("Exception: " + e.getMessage());
+                return null;
+            }
             String canonicalName = dynamicClass.getCanonicalName();
             // Set default properties for carving
             Properties.SELECTED_JUNIT = canonicalName;
@@ -87,7 +93,7 @@ public class CompileGentests {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         // Prepare a writer to capture compiler output
         StringWriter writer = new StringWriter();
-
+        // Prepare output path for compiler
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
         String classOutputDir = "../target/test-classes";
         Path classOutputPath = Paths.get(classOutputDir);

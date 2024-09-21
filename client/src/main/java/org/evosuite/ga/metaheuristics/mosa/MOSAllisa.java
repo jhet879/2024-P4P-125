@@ -263,11 +263,11 @@ public class MOSAllisa extends AbstractMOSA {
 
             if (Properties.USE_CODAMOSA) {
                 if (totalStalls >= 30) {
-                    LinkedHashMap<TestFitnessFunction, Double> rankedGoals;
+                    Set<TestFitnessFunction> rankedGoals;
                     rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
                     if (!rankedGoals.isEmpty()) {
                         totalGPTCalls++;
-                        List<TestCase> gptTestCases = invokeGPT(rankedGoals);
+                        List<TestCase> gptTestCases = invokeGPT(rankedGoals, false);
                         if (gptTestCases != null) {
                             successfulCarvedGPTCalls++;
                             for (TestCase tc : gptTestCases) {
@@ -310,40 +310,7 @@ public class MOSAllisa extends AbstractMOSA {
         return targetClass.substring(dotIndex + 1);
     }
 
-    private List<TestCase> invokeGPT(LinkedHashMap<TestFitnessFunction, Double> rankedGoals) {
-        List<TestCase> carvedTestCases = new ArrayList<>();
-        // Get the class as a string
-        String classAsString;
-        try {
-            classAsString = new String(Files.readAllBytes(Paths.get(Properties.PATH_TO_CUT)));
-        } catch (IOException e) {
-            System.out.println("IO ERROR");
-            return carvedTestCases;
-        }
-        // Prepare the request for ChatGPT
-        StringBuilder sb = new StringBuilder();
-        for (TestFitnessFunction key : rankedGoals.keySet()) {
-            sb.append(key + "\n");
-        }
-        String gptString = String.format(algo_test_gen_prompt, classAsString, sb);
-        // Make call to GPT
-        String initialGPTResponse = GPTRequest.chatGPT(gptString);
-        String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
-        formattedResponse = GPTRequest.cleanResponse(formattedResponse);
-        // TODO DETERMINE IF THIS IS SUFFICIENT
-        formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
-        GPTRequest.writeGPTtoFile(formattedResponse);
-
-        try {
-            // Carve the testcases from the gpt response
-            carvedTestCases = CompileGentests.compileAndCarveTests(Properties.CP);
-        } catch (Exception e) {
-            return carvedTestCases;
-        }
-        return  carvedTestCases;
-    }
-
-    private List<TestCase> invokeGPTInitialPop(Set<TestFitnessFunction> goals) {
+    private List<TestCase> invokeGPT(Set<TestFitnessFunction> goals, Boolean isForInitialPop) {
         List<TestCase> carvedTestCases = new ArrayList<>();
         // Get the class as a string
         String classAsString;
@@ -358,8 +325,13 @@ public class MOSAllisa extends AbstractMOSA {
         for (TestFitnessFunction test_func : goals) {
             sb.append(test_func + "\n");
         }
-        String gptString = String.format(initial_test_gen_prompt, Properties.POPULATION, classAsString, sb);
-        // Make request to GPT
+        String gptString;
+        if (isForInitialPop) {
+            gptString = String.format(initial_test_gen_prompt, Properties.POPULATION, classAsString, sb);
+        } else {
+            gptString = String.format(algo_test_gen_prompt, classAsString, sb);
+        }
+        // Make call to GPT
         String initialGPTResponse = GPTRequest.chatGPT(gptString);
         String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
         formattedResponse = GPTRequest.cleanResponse(formattedResponse);
@@ -468,7 +440,7 @@ public class MOSAllisa extends AbstractMOSA {
             while (success == false) {
                 int carvedTestsForInitialPop = 0;
                 this.population.clear();
-                List<TestCase> gptTestCases = invokeGPTInitialPop(goals);
+                List<TestCase> gptTestCases = invokeGPT(goals, true);
                 if (gptTestCases != null) {
                     successfulCarvedGPTCalls++;
                     System.out.println("Carved tests: " + gptTestCases.size());
