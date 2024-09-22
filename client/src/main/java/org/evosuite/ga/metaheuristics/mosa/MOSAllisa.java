@@ -44,6 +44,7 @@ import java.nio.file.Paths;
 import java.util.*;
 
 import org.evosuite.gpt.GPTRequest;
+import org.slf4j.Marker;
 
 /**
  * @TODO UPDATE
@@ -71,11 +72,10 @@ public class MOSAllisa extends AbstractMOSA {
             "tests wherever possible. Call the class, 'ClassTest'. Do not add any import/package statements, only add imports " +
             "required for JUnit and any exceptions that are used.\nClass under test:\n```\n%s\n```\nlinesToCover:\n%s";
 
-    static String initial_test_gen_prompt = "Given the Java class under test, lines of the class where test goals have " +
-            "not been met, generate %d stand-alone (no @Before, all the tests are self-contained) tests that can cover " +
-            "these goals, combine tests wherever possible. Call the class, 'ClassTest'. Do not add any import/package " +
-            "statements, only add imports required for JUnit and any exceptions that are used. Use org.junit.Test and " +
-            "org.junit.Assert.* for the imports.\nClass under test:\n```\n%s\n```\nlinesToCover:\n%s";
+    static String initial_test_gen_prompt = "Given the Java class under test, and some coverage criterion, generate %d " +
+            "stand-alone (no @Before, all the tests are self-contained) tests that can cover these criterion, combine " +
+            "tests wherever possible. Call the class, 'ClassTest'. Do not add any package statements. Use org.junit.Test" +
+            "and org.junit.Assert.* for the imports.\nClass under test:\n```\n%s\n```\nCriterion:\n%s";
 
     /**
      * Manager to determine the test goals to consider at each generation
@@ -301,7 +301,7 @@ public class MOSAllisa extends AbstractMOSA {
                 offspringPopulation.add(tch);
             }
         }
-        logger.info("Number of offsprings = {}", offspringPopulation.size());
+        logger.trace("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
     }
 
@@ -322,13 +322,16 @@ public class MOSAllisa extends AbstractMOSA {
         }
         // Prepare the request for ChatGPT
         StringBuilder sb = new StringBuilder();
-        for (TestFitnessFunction test_func : goals) {
-            sb.append(test_func + "\n");
-        }
         String gptString;
         if (isForInitialPop) {
+            for (Properties.Criterion crit : Properties.CRITERION) {
+                sb.append(crit + "\n");
+            }
             gptString = String.format(initial_test_gen_prompt, Properties.POPULATION, classAsString, sb);
         } else {
+            for (TestFitnessFunction test_func : goals) {
+                sb.append(test_func + "\n");
+            }
             gptString = String.format(algo_test_gen_prompt, classAsString, sb);
         }
         // Make call to GPT
@@ -433,35 +436,36 @@ public class MOSAllisa extends AbstractMOSA {
             // Create a random parent population P0
             this.generateInitialPopulation(Properties.POPULATION);
         } else {
+            int carvedTests = 0;
+            int retries = 0;
             Properties.SEARCH_BUDGET = 3600;
             boolean success = false;
-            Set<TestFitnessFunction> goals;
-            goals = this.goalsManager.getCurrentGoals();
-            while (success == false) {
-                int carvedTestsForInitialPop = 0;
+//            Set<TestFitnessFunction> goals;
+//            goals = this.goalsManager.getCurrentGoals();
+            // Keep trying to generate tests with GPT until it is successful
+            while (!success) {
+                carvedTests = 0;
                 this.population.clear();
-                List<TestCase> gptTestCases = invokeGPT(goals, true);
+                List<TestCase> gptTestCases = invokeGPT(null, true);
                 if (gptTestCases != null) {
                     successfulCarvedGPTCalls++;
-                    System.out.println("Carved tests: " + gptTestCases.size());
                     for (TestCase tc : gptTestCases) {
-                        carvedTestsForInitialPop++;
                         TestChromosome testChromosome = new TestChromosome();
                         testChromosome.setTestCase(tc);
                         testChromosome.set_gpt_status(true);
                         this.calculateFitness(testChromosome);
                         //System.out.println("AF " + testChromosome.getFitness());
                         population.add(testChromosome);
+                        carvedTests++;
                     }
                     success = true;
                 } else {
-                    System.out.println("Failed to generate tests!");
+                    retries++;
+                    logger.warn("Failed to generated tests for initial population, retrying [" + retries + "]...");
                 }
             }
-            System.out.println("Carved: " + successfulCarvedGPTCalls + " tests for the initial population");
+            logger.warn("Successfully generated [" + carvedTests + "] tests for the initial population");
         }
-
-
         // Determine fitness
         this.calculateFitness();
         this.notifyIteration();
@@ -507,41 +511,34 @@ public class MOSAllisa extends AbstractMOSA {
         // Evolve the population generation by generation until all gaols have been covered or the
         // search budget has been consumed.
         while (!isFinished() && this.goalsManager.getUncoveredGoals().size() > 0) {
-            System.out.println("CYCLE: " + this.currentIteration + " GOALS: " + this.getTotalNumberOfGoals());
-            System.out.println("COVERED GOALS[" + this.goalsManager.getCoveredGoals().size() + "]: " +this.goalsManager.getCoveredGoals());
-
-            System.out.println("UNCOVERED GOALS[" + this.goalsManager.getUncoveredGoals().size() + "]: " +this.goalsManager.getUncoveredGoals());
-            System.out.println();
-
-            int gpt_counter = 0;
-            for (TestChromosome tc : this.population) {
-                if (tc.get_gpt_status()){
-                    gpt_counter++;
-                }
-            }
-            totalGPTTestsAddedToSortedPop += gpt_counter;
-            System.out.println("GPT GENERATED TESTS IN POPULATION: " + gpt_counter);
+//            System.out.println("CYCLE: " + this.currentIteration + " GOALS: " + this.getTotalNumberOfGoals());
+//            System.out.println("COVERED GOALS[" + this.goalsManager.getCoveredGoals().size() + "]: " +this.goalsManager.getCoveredGoals());
+//            System.out.println("UNCOVERED GOALS[" + this.goalsManager.getUncoveredGoals().size() + "]: " +this.goalsManager.getUncoveredGoals());
+//            System.out.println();
+//            int gpt_counter = 0;
+//            for (TestChromosome tc : this.population) {
+//                if (tc.get_gpt_status()){
+//                    gpt_counter++;
+//                }
+//            }
+//            totalGPTTestsAddedToSortedPop += gpt_counter;
+//            System.out.println("GPT GENERATED TESTS IN POPULATION: " + gpt_counter);
             this.evolve();
             this.notifyIteration();
         }
 
-        if (isFinished()){
-            int totalGoals = this.getTotalNumberOfGoals();
-            int totalCoveredGoals = this.getCoveredGoals().size();
-            System.out.println("Exhausted Budget");
-        }
-
-
-//        System.out.println(this.suiteFitnessFunctions.keySet().);
         System.out.println("Iterations: " + this.currentIteration);
-        System.out.println("Sucessful GPT Calls: " + successfulCarvedGPTCalls + "/" + totalGPTCalls);
-        System.out.println("Total GPT Tests Added to Offspring Population: " + gptTestsAddedToOffSpringPop);
-        System.out.println("Running sum of gpt tests added to sorted population: " + totalGPTTestsAddedToSortedPop);
+        System.out.println();
+        System.out.println("Sucessful GPT Calls in Evolution: " + successfulCarvedGPTCalls + "/" + totalGPTCalls);
+        System.out.println();
+//        System.out.println("Total GPT Tests Added to Offspring Population: " + gptTestsAddedToOffSpringPop);
+//        System.out.println("Running sum of gpt tests added to sorted population: " + totalGPTTestsAddedToSortedPop);
         System.out.println("STANDARD MUTATION STATS:");
         System.out.println("DELETES: " + TestChromosome.Mdelete + "/" + TestChromosome.AT_Mdelete + " CHANGES: " + TestChromosome.Mchange + "/" + TestChromosome.AT_Mchange + " INSERTS: " + TestChromosome.Minsert + "/" + TestChromosome.AT_Minsert);
         System.out.println("GPT MUTATION STATS:");
         System.out.println("DELETES: " + TestChromosome.GPTMdelete + "/" + TestChromosome.AT_GPTMdelete + " CHANGES: " + TestChromosome.GPTMchange + "/" + TestChromosome.AT_GPTMchange + " INSERTS: " + TestChromosome.GPTMinsert + "/" + TestChromosome.AT_GPTMinsert);
         System.out.println("TOTAL SUCCESSFUL MUTATIONS: " + TestChromosome.Mchanged);
+        System.out.println();
         System.out.println("CROSSOVER STATS: " + GPTCrossOver.succesfulGPTCrossovers + "/" + totalCrossoverCalls + " WERE DONE WITH GPT, OUT OF " + GPTCrossOver.gptCrossoverAttempts);
 
         this.notifySearchFinished();
