@@ -542,7 +542,7 @@ public class MOSAllisa extends AbstractMOSA {
         System.out.println("GPT MUTATION STATS:");
         System.out.println("DELETES: " + TestChromosome.GPTMdelete + "/" + TestChromosome.AT_GPTMdelete + " CHANGES: " + TestChromosome.GPTMchange + "/" + TestChromosome.AT_GPTMchange + " INSERTS: " + TestChromosome.GPTMinsert + "/" + TestChromosome.AT_GPTMinsert);
         System.out.println("TOTAL SUCCESSFUL MUTATIONS: " + TestChromosome.Mchanged);
-        System.out.println("CROSSOVER STATS: " + GPTCrossOver.succesfulGPTCrossovers + "/" + totalCrossoverCalls + " WERE DONE WITH GPT, OUT OF " + GPTCrossOver.gptCrossoverAttempts + " TRIED AS A WHOLE: " + GPTCrossOver.testGPTCrossoverFNCalls);
+        System.out.println("CROSSOVER STATS: " + GPTCrossOver.succesfulGPTCrossovers + "/" + totalCrossoverCalls + " WERE DONE WITH GPT, OUT OF " + GPTCrossOver.gptCrossoverAttempts);
 
         this.notifySearchFinished();
     }

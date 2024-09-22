@@ -822,7 +822,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         String initialGPTResponse = GPTRequest.chatGPT(gptString);
         // Delete statements according to GPT response
         try {
-            ArrayList<Integer> linesToDelete = extractArrayFromString(initialGPTResponse);
+            ArrayList<Integer> linesToDelete = GPTRequest.extractArrayFromString(initialGPTResponse);
             if ((linesToDelete != null)) {
                 for (int line : linesToDelete) {
                     // Don't try to delete the line if it is larger
@@ -851,7 +851,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         String initialGPTResponse = GPTRequest.chatGPT(gptString);
         try {
             // Extract positions to change from gpt response
-            ArrayList<Integer> positions = extractArrayFromString(initialGPTResponse);
+            ArrayList<Integer> positions = GPTRequest.extractArrayFromString(initialGPTResponse);
             assert (test.isValid());
             for (int position : positions) {
                 // Check that the position is valid
@@ -896,7 +896,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         String initialGPTResponse = GPTRequest.chatGPT(gptString);
         try {
             // Extract positions to insert from gpt response
-            ArrayList<int[]> linesToDelete = extractTuplesFromString(initialGPTResponse);
+            ArrayList<int[]> linesToDelete = GPTRequest.extractTuplesFromString(initialGPTResponse);
             if ((linesToDelete != null)) {
                 for (int[] lineTypePair : linesToDelete) {
                     if (((!Properties.CHECK_MAX_LENGTH) || (test.size() < Properties.CHROMOSOME_LENGTH)) && (lineTypePair[0] < test.size())) {
@@ -914,62 +914,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         } catch(Exception ignored){
         }
         return changed;
-    }
-
-    //Move/Delete Later
-    public static ArrayList<Integer> extractArrayFromString(String input) {
-        ArrayList<Integer> numbers = new ArrayList<>();
-        String gptContent;
-        ObjectMapper objectMapper = new ObjectMapper();
-        // Extract content from response
-        try {
-            JsonNode rootNode = objectMapper.readTree(input);
-            JsonNode contentNode = rootNode.path("choices").get(0).path("message").path("content");
-            gptContent = (contentNode.toString()).replace("\"", "");
-            gptContent = gptContent.replace(" ","");
-            gptContent = gptContent.replace("\\n","");
-            gptContent = gptContent.replace("\\","");
-            gptContent = gptContent.replace("json","");
-            gptContent = gptContent.replace("```","");
-        } catch (Exception e) {
-            return numbers;
-        }
-        if (gptContent.matches("\\[]")) {
-            return numbers;
-        }
-        // Remove the square brackets
-        gptContent = gptContent.replace("[", "").replace("]", "");
-        // Split the string by commas and whitespace
-        String[] numberStrings = gptContent.split(",\\s*");
-        // Convert the string array into an ArrayList of Integers
-        for (String numberString : numberStrings) {
-            numbers.add(Integer.parseInt(numberString));
-        }
-        return numbers;
-    }
-
-    public static ArrayList<int[]> extractTuplesFromString(String input) {
-        ArrayList<int[]> numbers = new ArrayList<>();
-
-        String gptContent = "";
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            JsonNode rootNode = objectMapper.readTree(input);
-            JsonNode contentNode = rootNode.path("choices").get(0).path("message").path("content");
-            gptContent = (contentNode.toString()).replace("\"", "");
-//            System.out.println(contentNode);
-            gptContent = gptContent.replaceAll("\\[|]|\\s+", "");
-            String[] pairs = gptContent.split("},\\{");
-            for (String pair : pairs) {
-                pair = pair.replaceAll("[{}]", "");
-                String[] nums = pair.split(",");
-                int[] arr = new int[]{Integer.parseInt(nums[0]), Integer.parseInt(nums[1])};
-                numbers.add(arr);
-            }
-        } catch (Exception e) {
-            return numbers;
-        }
-        return numbers;
     }
 
     // ----------------------------------

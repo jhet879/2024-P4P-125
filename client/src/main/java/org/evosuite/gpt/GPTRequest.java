@@ -1,5 +1,6 @@
 package org.evosuite.gpt;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.evosuite.Properties;
 
@@ -127,6 +128,61 @@ public class GPTRequest {
         formattedResponse = formattedResponse.replace("\\\"", "\"");
 
         return formattedResponse;
+    }
+
+    public static ArrayList<Integer> extractArrayFromString(String input) {
+        ArrayList<Integer> numbers = new ArrayList<>();
+        String gptContent;
+        ObjectMapper objectMapper = new ObjectMapper();
+        // Extract content from response
+        try {
+            JsonNode rootNode = objectMapper.readTree(input);
+            JsonNode contentNode = rootNode.path("choices").get(0).path("message").path("content");
+            gptContent = (contentNode.toString()).replace("\"", "");
+            gptContent = gptContent.replace(" ","");
+            gptContent = gptContent.replace("\\n","");
+            gptContent = gptContent.replace("\\","");
+            gptContent = gptContent.replace("json","");
+            gptContent = gptContent.replace("```","");
+        } catch (Exception e) {
+            return numbers;
+        }
+        if (gptContent.matches("\\[]")) {
+            return numbers;
+        }
+        // Remove the square brackets
+        gptContent = gptContent.replace("[", "").replace("]", "");
+        // Split the string by commas and whitespace
+        String[] numberStrings = gptContent.split(",\\s*");
+        // Convert the string array into an ArrayList of Integers
+        for (String numberString : numberStrings) {
+            numbers.add(Integer.parseInt(numberString));
+        }
+        return numbers;
+    }
+
+    public static ArrayList<int[]> extractTuplesFromString(String input) {
+        ArrayList<int[]> numbers = new ArrayList<>();
+        String gptContent;
+        ObjectMapper objectMapper = new ObjectMapper();
+        // Extract content from response
+        try {
+            JsonNode rootNode = objectMapper.readTree(input);
+            JsonNode contentNode = rootNode.path("choices").get(0).path("message").path("content");
+            gptContent = (contentNode.toString()).replace("\"", "");
+            gptContent = gptContent.replaceAll("\\[|]|\\s+", "");
+            String[] pairs = gptContent.split("},\\{");
+            // Extract numbers into array
+            for (String pair : pairs) {
+                pair = pair.replaceAll("[{}]", "");
+                String[] nums = pair.split(",");
+                int[] arr = new int[]{Integer.parseInt(nums[0]), Integer.parseInt(nums[1])};
+                numbers.add(arr);
+            }
+        } catch (Exception e) {
+            return numbers;
+        }
+        return numbers;
     }
 }
 
