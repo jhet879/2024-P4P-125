@@ -19,6 +19,7 @@ public class CompileGentests {
 
     public static String junit_path = "target/dependency/junit-4.12.jar";
     public static String hamcrest_path = "target/dependency/hamcrest-core-1.3.jar";
+    public static String tests_class_path = "target/test-classes";
     private static boolean first_use = true;
 
     public static List<TestCase> compileAndCarveTests(String cutClassPath) {
@@ -26,6 +27,7 @@ public class CompileGentests {
         if (Properties.IS_RUNNING_A_SYSTEM_TEST && first_use){
             junit_path = "../"+junit_path;
             hamcrest_path = "../"+hamcrest_path;
+            tests_class_path = "../"+tests_class_path;
             first_use = false;
         }
         File junit_jar = new File(junit_path);
@@ -88,44 +90,35 @@ public class CompileGentests {
         }
     }
 
-    public static boolean verifyCompilation(String testClassPath, String className, String outputDir) throws ClassNotFoundException, MalformedURLException {
+    public static boolean verifyCompilation(String cutClassPath, String className, String outputDir) throws ClassNotFoundException, MalformedURLException {
+        // Modifify the links to the jar paths if it is a system test
+        if (Properties.IS_RUNNING_A_SYSTEM_TEST && first_use){
+            junit_path = "../"+junit_path;
+            hamcrest_path = "../"+hamcrest_path;
+            tests_class_path = "../"+tests_class_path;
+            first_use = false;
+        }
         // Get the Java compiler
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         // Prepare a writer to capture compiler output
         StringWriter writer = new StringWriter();
         // Prepare output path for compiler
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
-        String classOutputDir = "../target/test-classes";
-        Path classOutputPath = Paths.get(classOutputDir);
         try {
-            //TODO MAKE IT DELETE THE FILE IF IT ALREADY EXISTS
-            if (Files.notExists(classOutputPath)) {
-                Files.createDirectories(classOutputPath);  // Creates the directory along with any necessary parent directories
-            }
-            fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(classOutputDir)));
+            fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(tests_class_path)));
         } catch (IOException e) {
             System.out.println("Failed to set output directory: " + e.getMessage());
+            return false;
         }
-
-        //TODO MAKE THIS AUTOMATIC
-        testClassPath = "../examplCodez/target/classes;../target/dependency/junit-4.12.jar;../target/dependency/hamcrest-core-1.3.jar;../runtime/target/classes;../target/test-classes";
-
+        // Set classpath
+        String testClassPath = cutClassPath+";"+junit_path+";"+hamcrest_path;
         // Prepare the compilation task with the classpath
         Iterable<String> options = Arrays.asList("-classpath", testClassPath);
-
         JavaCompiler.CompilationTask task = compiler.getTask(writer, fileManager, null, options, null,
-                Arrays.asList(new JavaSourceFromString(className.replace("REGRESSION", "scaffolding"), outputDir)));
+                Arrays.asList(new JavaSourceFromString(className, outputDir)));
         // Compile the source code
         boolean success = task.call();
-
-        JavaCompiler.CompilationTask task1 = compiler.getTask(writer, null, null, options, null,
-                Arrays.asList(new JavaSourceFromString(className, outputDir)));
-
-        // Compile the source code
-        success = task1.call();
-
         if (success) {
-            System.out.println("Compilation complete.");
             return true;
         } else {
             // Print compiler errors

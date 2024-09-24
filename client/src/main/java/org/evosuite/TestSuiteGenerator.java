@@ -89,6 +89,25 @@ public class TestSuiteGenerator {
     private static final String FOR_NAME = "forName";
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteGenerator.class);
 
+    public static String testSuiteCopy;
+
+    public static String non_regression_gpt_prompt = "Given a set of classes being tested and their corresponding " +
+            "test cases, perform an analysis on these classes to verify their behavioural correctness and generate " +
+            "the behaviourally correct assertions for each test case.\n" +
+            "Some conditions:\n" +
+            "1. Review the implementation of each class to ensure it behaves as expected.\n" +
+            "2. If behaviour in the classes is found to be incorrect, modify the existing tests\n" +
+            "3. Do NOT add new tests, only modify the existing tests\n" +
+            "4. Only generate the assertions, do NOT modify anything other than the tests, leave EVERYTHING else alone.\n" +
+            "5. Format it into a JUNIT 4 test suite that can be compiled.\n" +
+            "6. The adjustments in the test suite should be capable of detecting the identified behavioural errors when the test suite is executed.\n" +
+            "7. No explanation is required, just return the test suite with assertions.\n" +
+            "8. Name the class: %s.\n" +
+            "9. Put the class into the package: %s\n" +
+            "10. Use org.junit.Test and org.junit.Assert.* for the JUNIT imports.\n" +
+            "Objective: Ensure that the test suite robustly checks and catches any functional discrepancies in the classes under test.\n" +
+            "Class Under Test:\njava ```\n%s\n```\n" +
+            "JUnit 4 Test Suite:\njava ```\n%s\n```\n";
 
     private void initializeTargetClass() throws Throwable {
         String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
@@ -235,52 +254,21 @@ public class TestSuiteGenerator {
         if (Properties.USE_GPT_NON_REGRESSION) {
             // USE GPT FOR ADJUSTING THE TEST CASES FOR NON-REGRESSION
             String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + Properties.JUNIT_SUFFIX;
-            String testDir = Properties.TEST_DIR;
-            String classPrefix = Properties.CLASS_PREFIX;
-            String evosuiteTestsFile = testDir+"\\"+classPrefix+"\\"+name+".java";
-
-            String pathToClass = Properties.CP + "/" + Properties.PROJECT_PREFIX + "/" + extractClassName(Properties.TARGET_CLASS) + ".class";
-            System.out.println("Path to Class: " + pathToClass);
-            // Decompile the class file and get it as a string
-            String classAsString = JDecompiler.decompileAndPrintClassFiles(pathToClass);
-
-            String classUnderTestString = classAsString;
-            String generatedTestSuiteString = "";
+            // Get the class file as a string
+            String classAsString = "";
             try {
-                 //classUnderTestString = new String(Files.readAllBytes(Paths.get(evosuiteTestsFile)));
-                 generatedTestSuiteString = new String(Files.readAllBytes(Paths.get(evosuiteTestsFile)));
-                 System.out.println(classUnderTestString);
+                classAsString = new String(Files.readAllBytes(Paths.get(Properties.PATH_TO_CUT)));
             } catch (IOException e) {
                 System.out.println("IO ERROR");
             }
-
-            StringBuilder sb = new StringBuilder();
-            sb.append("Given a set of classes being tested and their corresponding JUnit 4 test suite, perform an analysis on these classes to verify their behavioural correctness.\n");
-            sb.append("Some conditions:\n");
-            sb.append("1. Review the implementation of each class to ensure it behaves as expected.\n");
-            sb.append("2. If behaviour in the classes is found to be incorrect, modify the existing tests\n");
-            sb.append("3. Do NOT add new tests, only modify the existing tests\n");
-            sb.append("4. Do NOT modify anything other than the tests, leave EVERYTHING else alone.\n");
-            sb.append("5. The adjustments in the test suite should be capable of detecting the identified behavioural errors when the test suite is executed.\n");
-            sb.append("6. No explanation is required, just return the modified test suite.\n");
-            sb.append("7. If no modification is required, return an empty string.\n");
-            sb.append("Objective: Ensure that the test suite robustly checks and catches any functional discrepancies in the classes under test.\n");
-
-            sb.append("Class Under Test:\n");
-            sb.append("java ```\n");
-            sb.append(classUnderTestString);
-            sb.append("\n```\n");
-
-            sb.append("JUnit 4 Test Suite:\n");
-            sb.append("java ```\n");
-            sb.append(generatedTestSuiteString);
-            sb.append("\n```\n");
-
-            String gptRequest = sb.toString();
-            String initialGPTResponse = GPTRequest.chatGPT(sb.toString());
+            // Make request to GPT
+            String outputName = name+"_NON_REGRESSION";
+            String gptRequest = String.format(non_regression_gpt_prompt, outputName, Properties.PROJECT_PREFIX, classAsString, testSuiteCopy);
+            String initialGPTResponse = GPTRequest.chatGPT(gptRequest);
             System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
             String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
-            // TODO FIND A BETTER SOLUTION TO OMITTING THE UNWANTED ESCAPE CHARACTERS THAT GPT ADDS
+            // TODO FIND A BETTER SOLUTION TO OMITTING THE UNWANTED ESCAPE CHARACTERS FROM GPT?
+            formattedResponse = formattedResponse.replace("java\n", "");
             formattedResponse = formattedResponse.replace("\\r", "\r");
             formattedResponse = formattedResponse.replace("(\\\"", "(\"");
             formattedResponse = formattedResponse.replace("\\\")", "\")");
@@ -288,31 +276,19 @@ public class TestSuiteGenerator {
             formattedResponse = formattedResponse.replace("\\\";", "\";");
             formattedResponse = formattedResponse.replace("\\\"\"", "\"\"");
             formattedResponse = formattedResponse.replace("java\n", "");
-
-            String outputName = name+"_REGRESSION";
             formattedResponse = formattedResponse.replace(name+" ", name+"_REGRESSION ");
             String outputPath = Properties.TEST_DIR + "\\" + Properties.PROJECT_PREFIX;
-
-
-            System.out.println("GPT Formatted Response:\n" + formattedResponse);
             GPTRequest.writeGPTtoFile(formattedResponse, outputName, outputPath);
-
-            boolean valid_gpt_code = false;
-
-            // See if the test compiles
+            // Check if the test compiles
+            boolean non_reg_result = false;
             try {
-                valid_gpt_code = CompileGentests.verifyCompilation(Properties.CP + "/" + Properties.PROJECT_PREFIX, outputName, outputPath);
+                non_reg_result = CompileGentests.verifyCompilation(Properties.CP, outputName, outputPath);
             } catch (Exception e) {
+                System.out.println("FAILED TO COMPILE NON REGRESSION TESTS");
             }
-
-            if (!valid_gpt_code) {
-                System.out.println("Failed to create regression-mode tests!");
-            } else {
-                System.out.println("Created regression-mode tests!");
+            if (!non_reg_result) {
+                System.out.println("FAILED TO COMPILE NON REGRESSION TESTS");
             }
-
-
-
         }
 
         /*
@@ -583,6 +559,10 @@ public class TestSuiteGenerator {
                     }
                 }
             }
+        }
+
+        if (Properties.USE_GPT_NON_REGRESSION){
+            testSuiteCopy = testSuite.toString();
         }
 
         if (Properties.ASSERTIONS) {
