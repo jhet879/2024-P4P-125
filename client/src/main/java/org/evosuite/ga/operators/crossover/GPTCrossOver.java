@@ -5,14 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.ga.metaheuristics.mosa.MOSAllisa;
 import org.evosuite.gpt.GPTRequest;
 import org.evosuite.utils.Randomness;
 
 import java.util.ArrayList;
 
 public class GPTCrossOver<T extends Chromosome<T>> extends CrossOverFunction<T> {
-    public static int succesfulGPTCrossovers = 0;
-    public static int gptCrossoverAttempts = 0;
+
 
     public static String gptCrossoverPrompt = "For these two java test chromosomes, return the most suitable location for " +
             "where the crossover operation should be performed.\n" +
@@ -34,7 +34,7 @@ public class GPTCrossOver<T extends Chromosome<T>> extends CrossOverFunction<T> 
         int pos1 = 0;
         int pos2 = 0;
         if (Randomness.nextDouble() <= Properties.GPT_CROSSOVER_USAGE_PROBABILITY) {
-            gptCrossoverAttempts++;
+            MOSAllisa.gptCrossoverAttempts++;
             // USE GPT
             try {
                 // Make request to GPT
@@ -53,7 +53,7 @@ public class GPTCrossOver<T extends Chromosome<T>> extends CrossOverFunction<T> 
             pos1 = ((int) Math.floor((t1.size() - 1) * splitPoint)) + 1;
             pos2 = ((int) Math.floor((t2.size() - 1) * splitPoint)) + 1;
         } else {
-            succesfulGPTCrossovers++;
+            MOSAllisa.succesfulGPTCrossovers++;
         }
         // Perform crossover
         parent1.crossOver(t2, pos1, pos2);

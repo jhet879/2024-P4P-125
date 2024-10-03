@@ -68,10 +68,10 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
 //                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_gpt_crossover", "-use_gpt_initial_pop", "-use_gpt_non_regression"};
 
 //        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes",
-//                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_gpt_crossover", "-use_gpt_initial_pop"};
+//                "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_mutation", "-use_sk-yrTfwkQ1dHwiwrOv5cDRzPGCAXbsPooYjaCe11NTNQT3BlbkFJt1ykUq0pavTWhXI8WzkohmUB6Re7UafwN3rWaf908Agpt_crossover", "-use_gpt_initial_pop"};
 
         String pathToCut = "D:\\Documents\\UOA\\2024\\Part 4 Project\\Repos\\2024-P4P-125\\examplCodez\\src\\main\\java\\mosalisa\\IncorrectOperations.java";
-        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_codamosa", "-use_gpt_initial_pop", "-path_to_cut", pathToCut};
+        String[] command = new String[]{"-generateMOSuite", "-class", cut, "-projectCP", "../examplCodez/target/classes", "-gpt_key=" + GPTKey, "-use_gpt_crossover", "-path_to_cut", pathToCut};
 
 
         // display stats?
@@ -125,7 +125,7 @@ public class DynaMOSAGASystemTest extends SystemTestBase {
     @Test
     public void testMOSALisa() {
         //Console.SystemOutPritnln("CANOICAL Name: " + stack.class.);
-        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.IncorrectOperations", true);
+        List<Chromosome<?>> population = this.setup(null, 0, "mosalisa.Stack", true);
 
         Assert.assertNotEquals(population.size(), 0);
     }

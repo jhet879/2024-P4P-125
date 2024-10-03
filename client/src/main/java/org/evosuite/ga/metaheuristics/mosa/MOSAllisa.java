@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga.metaheuristics.mosa;
 
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
@@ -38,8 +39,11 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
@@ -65,7 +69,9 @@ public class MOSAllisa extends AbstractMOSA {
     public int successfulCarvedGPTCalls = 0;
     public int gptTestsAddedToOffSpringPop = 0;
     public int totalGPTTestsAddedToSortedPop = 0;
-    public int totalCrossoverCalls = 0;
+    public static int totalCrossoverCalls = 0;
+    public static int succesfulGPTCrossovers = 0;
+    public static int gptCrossoverAttempts = 0;
 
     static String algo_test_gen_prompt = "Given the Java class under test, lines of the class where test goals have not been met " +
             "generate stand-alone (no @Before, all the tests are self-contained) tests that can cover these goals, combine " +
@@ -226,8 +232,8 @@ public class MOSAllisa extends AbstractMOSA {
             // apply crossover
             if (Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
                 try {
-                    totalCrossoverCalls++;
                     this.crossoverFunction.crossOver(offspring1, offspring2);
+                    totalCrossoverCalls++;
                 } catch (ConstructionFailedException e) {
                     logger.debug("CrossOver failed.");
                     continue;
@@ -527,6 +533,48 @@ public class MOSAllisa extends AbstractMOSA {
             this.notifyIteration();
         }
 
+        if (Properties.USE_CODAMOSA || Properties.USE_GPT_MUTATION || Properties.USE_GPT_CROSSOVER ||
+                Properties.USE_GPT_INITIAL_POPULATION || Properties.USE_GPT_NON_REGRESSION) {
+            Path directory = Paths.get(Properties.ML_REPORTS_DIR);
+            Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/report.txt");
+            // Ensure the directory exists
+            if (Files.exists(directory)) {
+                try {
+                    Files.walk(directory).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+                } catch (Exception ignored) {
+                }
+            }
+            try {
+                Files.createDirectories(directory);
+                Files.createFile(filepath);
+            } catch (Exception ignored) {
+            }
+
+            // Open or create the file, and append to its contents
+            try (FileWriter fileWriter = new FileWriter(filepath.toString(), true)) {
+                fileWriter.write("#### MOSALLISA STATS ####\n");
+                if (Properties.USE_CODAMOSA) {
+                    fileWriter.write("- CODAMOSA\n");
+                }
+                if (Properties.USE_GPT_MUTATION) {
+                    fileWriter.write("- GPT MUTATION\n");
+                }
+                if (Properties.USE_GPT_CROSSOVER) {
+                    fileWriter.write("- GPT CROSSOVER\n");
+                    fileWriter.write("  - Successful GPT Calls: " + succesfulGPTCrossovers + "/" + gptCrossoverAttempts + "\n");
+                    fileWriter.write("  - Total Crossovers: " + totalCrossoverCalls + "\n");
+                }
+                if (Properties.USE_GPT_INITIAL_POPULATION) {
+                    fileWriter.write("- GPT INITIAL POPULATION\n");
+                }
+                if (Properties.USE_GPT_NON_REGRESSION) {
+                    fileWriter.write("GPT NON-REGRESSION\n");
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
         System.out.println("Iterations: " + this.currentIteration);
         System.out.println();
         System.out.println("Sucessful GPT Calls in Evolution: " + successfulCarvedGPTCalls + "/" + totalGPTCalls);
@@ -539,7 +587,7 @@ public class MOSAllisa extends AbstractMOSA {
         System.out.println("DELETES: " + TestChromosome.GPTMdelete + "/" + TestChromosome.AT_GPTMdelete + " CHANGES: " + TestChromosome.GPTMchange + "/" + TestChromosome.AT_GPTMchange + " INSERTS: " + TestChromosome.GPTMinsert + "/" + TestChromosome.AT_GPTMinsert);
         System.out.println("TOTAL SUCCESSFUL MUTATIONS: " + TestChromosome.Mchanged);
         System.out.println();
-        System.out.println("CROSSOVER STATS: " + GPTCrossOver.succesfulGPTCrossovers + "/" + totalCrossoverCalls + " WERE DONE WITH GPT, OUT OF " + GPTCrossOver.gptCrossoverAttempts);
+        System.out.println("successfulGPTCrossovers: " + succesfulGPTCrossovers + " totalCrossoverCalls: " + totalCrossoverCalls + " gptCrossoverAttempts: " + gptCrossoverAttempts);
 
         this.notifySearchFinished();
     }

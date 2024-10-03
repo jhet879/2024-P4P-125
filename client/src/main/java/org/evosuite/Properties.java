@@ -1701,6 +1701,9 @@ public class Properties {
     @Parameter(key = "path_to_cut", description = "Path to class under test Java file")
     public static String PATH_TO_CUT = null;
 
+    @Parameter(key = "mosallisa_reports_dir", description = "Path to save mosallisa report to")
+    public static String ML_REPORTS_DIR = "mosallisa-report";
+
 
     // Added - fix for @NotNull annotations issue on evo mailing list
 

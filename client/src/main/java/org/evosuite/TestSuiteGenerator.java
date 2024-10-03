@@ -19,6 +19,7 @@
  */
 package org.evosuite;
 
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.evosuite.Properties.AssertionStrategy;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.TestFactory;
@@ -31,6 +32,8 @@ import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.mosa.MOSAllisa;
+import org.evosuite.ga.operators.crossover.GPTCrossOver;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.gpt.CompileGentests;
 import org.evosuite.gpt.GPTRequest;
@@ -146,7 +149,15 @@ public class TestSuiteGenerator {
      * @return a {@link java.lang.String} object.
      */
     public TestGenerationResult generateTestSuite() {
-
+        LoggingUtils.getEvoLogger().info("* ALGORITHM CONFIG");
+        LoggingUtils.getEvoLogger().info("  - ALGORITHM: " + Properties.ALGORITHM);
+        LoggingUtils.getEvoLogger().info("  - STRATEGY: " + Properties.STRATEGY);
+        LoggingUtils.getEvoLogger().info("* MOSALLISA CONFIG");
+        LoggingUtils.getEvoLogger().info("  - CODAMOSA: " + Properties.USE_CODAMOSA);
+        LoggingUtils.getEvoLogger().info("  - GPT Mutation: " + Properties.USE_GPT_MUTATION);
+        LoggingUtils.getEvoLogger().info("  - GPT Crossover: " + Properties.USE_GPT_CROSSOVER);
+        LoggingUtils.getEvoLogger().info("  - GPT Initial Population: " + Properties.USE_GPT_INITIAL_POPULATION);
+        LoggingUtils.getEvoLogger().info("  - GPT Non-Regression: " + Properties.USE_GPT_NON_REGRESSION);
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Analyzing classpath: ");
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.INITIALIZATION);
@@ -299,6 +310,12 @@ public class TestSuiteGenerator {
 
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
         LoggingUtils.getEvoLogger().info("");
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
+        LoggingUtils.getEvoLogger().info("");
+        LoggingUtils.getEvoLogger().info("* MOSALLISA STATS");
+        LoggingUtils.getEvoLogger().info("  - GPT Crossover:");
+        LoggingUtils.getEvoLogger().info("    - Successful GPT Calls: " + MOSAllisa.succesfulGPTCrossovers + "/" + MOSAllisa.gptCrossoverAttempts);
+        LoggingUtils.getEvoLogger().info("    - Total Crossovers: " + MOSAllisa.totalCrossoverCalls);
 
         return result != null ? result : TestGenerationResultBuilder.buildSuccessResult();
     }
