@@ -192,9 +192,6 @@ public class EvoSuite {
                 }
             }
 
-            if (!line.hasOption("algorithm")) {
-                Properties.ALGORITHM = Properties.Algorithm.MOSALISA;
-            }
             if (line.hasOption("gpt_key")) {
                 try {
                     Properties.getInstance().setValue("gpt_key", line.getOptionValue("gpt_key"));

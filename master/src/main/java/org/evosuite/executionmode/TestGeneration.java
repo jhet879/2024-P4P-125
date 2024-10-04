@@ -19,6 +19,7 @@
  */
 package org.evosuite.executionmode;
 
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
@@ -357,7 +358,7 @@ public class TestGeneration {
                 }
 
                 if (!algorithmSet) {
-                    cmdLine.add("-Dalgorithm=DYNAMOSA");
+                    cmdLine.add("-Dalgorithm=MOSALLISA");
                 }
                 break;
             case DSE:

@@ -141,6 +141,7 @@ public class TestSuiteGenerator {
         // the CUT to be loaded first
         DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(cp.split(File.pathSeparator)));
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Finished analyzing classpath");
+        Properties.CP = cp;
     }
 
     /**
@@ -312,10 +313,6 @@ public class TestSuiteGenerator {
         LoggingUtils.getEvoLogger().info("");
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
         LoggingUtils.getEvoLogger().info("");
-        LoggingUtils.getEvoLogger().info("* MOSALLISA STATS");
-        LoggingUtils.getEvoLogger().info("  - GPT Crossover:");
-        LoggingUtils.getEvoLogger().info("    - Successful GPT Calls: " + MOSAllisa.succesfulGPTCrossovers + "/" + MOSAllisa.gptCrossoverAttempts);
-        LoggingUtils.getEvoLogger().info("    - Total Crossovers: " + MOSAllisa.totalCrossoverCalls);
 
         return result != null ? result : TestGenerationResultBuilder.buildSuccessResult();
     }

@@ -226,7 +226,7 @@ public class PropertiesSuiteGAFactory
                     logger.info("Using a default factory that creates tests with variable length");
                     return new LIPSTestSuiteAdapter(new LIPS(new RandomLengthTestFactory()));
                 }
-            case MOSALISA:
+            case MOSALLISA:
                 logger.info("Chosen search algorithm: MOSAllisa");
                 if (factory instanceof TestSuiteChromosomeFactory) {
                     final TestSuiteChromosomeFactory tscf = (TestSuiteChromosomeFactory) factory;

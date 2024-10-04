@@ -1,4 +1,0 @@
-#### MOSALLISA STATS ####
-- GPT CROSSOVER
-  - Successful GPT Calls: 103/113
-  - Total Crossovers: 377

@@ -11,17 +11,42 @@ import java.net.URL;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class GPTRequest {
 
+    static int request_counter = 0;
+    static boolean first_entry = true;
+
     public static String chatGPT(String prompt) {
         String url = "https://api.openai.com/v1/chat/completions";
         String apiKey = Properties.GPT_KEY;
         String model = "gpt-4o-mini";
+        request_counter++;
 
+        Path directory = Paths.get(Properties.ML_REPORTS_DIR);
+        Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt");
+        // Ensure the directory exists
+        if (!Files.exists(directory)) {
+            try {
+                Files.createDirectories(directory);
+                Files.createFile(filepath);
+            } catch (Exception ignored) {
+            }
+        } else if (first_entry) {
+            try {
+                Files.delete(filepath);
+                first_entry = false;
+            } catch (IOException ignored) {
+            }
+        }
         try {
+            writeToGPTLogFile("== REQUEST: " + request_counter + " ==\n");
+//            writeToGPTLogFile(prompt + "\n");
             URL obj = new URL(url);
             HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
             connection.setRequestMethod("POST");
@@ -59,12 +84,21 @@ public class GPTRequest {
                 response.append(line);
             }
             br.close();
+            Thread.sleep(100);
 
+            writeToGPTLogFile("RESPONSE: " + response + "\n");
             // calls the method to extract the message.
             return response.toString();
-
-        } catch (IOException e) {
+        } catch (Exception e) {
+            writeToGPTLogFile("GPT REQUEST FAILURE: " + e.getMessage() + "\n");
             throw new RuntimeException(e);
+        }
+    }
+
+    private static void writeToGPTLogFile(String msg) {
+        try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
+            fileWriter.write(msg);
+        } catch (IOException ignored) {
         }
     }
 
@@ -97,7 +131,19 @@ public class GPTRequest {
     }
 
     public static void writeGPTtoFile(String gptReponse){
-        try (PrintWriter out = new PrintWriter(Properties.OUTPUT_DIR + "\\ClassTest.java")) {
+        Path directory = Paths.get(Properties.OUTPUT_DIR);
+        // Ensure the directory exists
+        if (Files.exists(directory)) {
+            try {
+                Files.walk(directory).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+            } catch (Exception ignored) {
+            }
+        }
+        try {
+            Files.createDirectories(directory);
+        } catch (Exception ignored) {
+        }
+        try (PrintWriter out = new PrintWriter(Properties.OUTPUT_DIR + File.separatorChar + "ClassTest.java")) {
             out.println(gptReponse);
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
@@ -105,7 +151,7 @@ public class GPTRequest {
     }
 
     public static void writeGPTtoFile(String gptReponse, String fileName, String outputPath){
-        try (PrintWriter out = new PrintWriter(outputPath + "\\" + fileName + ".java")) {
+        try (PrintWriter out = new PrintWriter(outputPath + File.separatorChar + fileName + ".java")) {
             out.println(gptReponse);
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);

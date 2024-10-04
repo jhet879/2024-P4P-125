@@ -317,7 +317,7 @@ public class Properties {
         // mu-lambda
         ONE_PLUS_LAMBDA_LAMBDA_GA, ONE_PLUS_ONE_EA, MU_PLUS_LAMBDA_EA, MU_LAMBDA_EA,
         // many-objective algorithms
-        MOSA, DYNAMOSA, LIPS, MIO, MOSALISA,
+        MOSA, DYNAMOSA, LIPS, MIO, MOSALLISA,
         // multiple-objective optimisation algorithms
         NSGAII, SPEA2
     }
@@ -352,7 +352,7 @@ public class Properties {
     public static boolean MAP_ELITES_IGNORE_FEATURES = false;
 
     @Parameter(key = "algorithm", group = "Search Algorithm", description = "Search algorithm")
-    public static Algorithm ALGORITHM = Algorithm.MOSALISA;
+    public static Algorithm ALGORITHM = Algorithm.MOSALLISA;
 
     /**
      * Different models of neighbourhoods in the Cellular GA
@@ -1683,19 +1683,19 @@ public class Properties {
     // Used to define the probability that gpt is used for performing crosover operations
     public static double GPT_CROSSOVER_USAGE_PROBABILITY = 0.4;
 
-    @Parameter(key = "use_codamosa", description = "Disable/Enable the usage of the CODAMOSA implementation in MOSALISA")
+    @Parameter(key = "use_codamosa", description = "Disable/Enable the usage of the CODAMOSA implementation in MOSALLISA")
     public static boolean USE_CODAMOSA = false;
 
-    @Parameter(key = "use_gpt_mutation", description = "Disable/Enable the usage of the gpt for mutation in MOSALISA")
+    @Parameter(key = "use_gpt_mutation", description = "Disable/Enable the usage of the gpt for mutation in MOSALLISA")
     public static boolean USE_GPT_MUTATION = false;
 
-    @Parameter(key = "use_gpt_crossover", description = "Disable/Enable the usage of the gpt for crossover in MOSALISA")
+    @Parameter(key = "use_gpt_crossover", description = "Disable/Enable the usage of the gpt for crossover in MOSALLISA")
     public static boolean USE_GPT_CROSSOVER = false;
 
-    @Parameter(key = "use_gpt_initial_pop", description = "Disable/Enable the usage of the gpt for generating the initial population in MOSALISA")
+    @Parameter(key = "use_gpt_initial_pop", description = "Disable/Enable the usage of the gpt for generating the initial population in MOSALLISA")
     public static boolean USE_GPT_INITIAL_POPULATION = false;
 
-    @Parameter(key = "use_gpt_non_regression", description = "Disable/Enable the usage of the gpt for generating non-regression mode testsin MOSALISA")
+    @Parameter(key = "use_gpt_non_regression", description = "Disable/Enable the usage of the gpt for generating non-regression mode testing MOSALLISA")
     public static boolean USE_GPT_NON_REGRESSION = false;
 
     @Parameter(key = "path_to_cut", description = "Path to class under test Java file")

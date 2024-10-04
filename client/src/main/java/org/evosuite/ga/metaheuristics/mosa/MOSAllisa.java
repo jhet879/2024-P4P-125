@@ -46,9 +46,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-import org.evosuite.gpt.GPTRequest;
-import org.slf4j.Marker;
+import org.evosuite.gpt.*;
 
 /**
  * @TODO UPDATE
@@ -65,8 +66,8 @@ public class MOSAllisa extends AbstractMOSA {
 
     private static final Logger logger = LoggerFactory.getLogger(MOSAllisa.class);
 
-    public int totalGPTCalls = 0;
-    public int successfulCarvedGPTCalls = 0;
+    public static int totalCODAMOSAGPTCalls = 0;
+    public static int successfulCODAMOSAGPTCalls = 0;
     public int gptTestsAddedToOffSpringPop = 0;
     public int totalGPTTestsAddedToSortedPop = 0;
     public static int totalCrossoverCalls = 0;
@@ -82,6 +83,8 @@ public class MOSAllisa extends AbstractMOSA {
             "stand-alone (no @Before, all the tests are self-contained) tests that can cover these criterion, combine " +
             "tests wherever possible. Call the class, 'ClassTest'. Do not add any package statements. Use org.junit.Test" +
             "and org.junit.Assert.* for the imports.\nClass under test:\n```\n%s\n```\nCriterion:\n%s";
+
+    private final Lock gpt_lock = new ReentrantLock();
 
     /**
      * Manager to determine the test goals to consider at each generation
@@ -272,10 +275,12 @@ public class MOSAllisa extends AbstractMOSA {
                     Set<TestFitnessFunction> rankedGoals;
                     rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
                     if (!rankedGoals.isEmpty()) {
-                        totalGPTCalls++;
+                        totalCODAMOSAGPTCalls++;
+                        gpt_lock.lock();
                         List<TestCase> gptTestCases = invokeGPT(rankedGoals, false);
+                        gpt_lock.unlock();
                         if (gptTestCases != null) {
-                            successfulCarvedGPTCalls++;
+                            successfulCODAMOSAGPTCalls++;
                             for (TestCase tc : gptTestCases) {
                                 gptTestsAddedToOffSpringPop++;
                                 TestChromosome testChromosome = new TestChromosome();
@@ -348,12 +353,27 @@ public class MOSAllisa extends AbstractMOSA {
         formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
         GPTRequest.writeGPTtoFile(formattedResponse);
 
+        String log_msg = "CARVING: FAILED\n\n";
+
         try {
             // Carve the testcases from the gpt response
             carvedTestCases = CompileGentests.compileAndCarveTests(Properties.CP);
         } catch (Exception e) {
+            try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
+                fileWriter.write(log_msg);
+            } catch (IOException ignored) {
+            }
             return carvedTestCases;
         }
+        if (carvedTestCases != null) {
+            log_msg = "CARVING: SUCCESS\n\n";
+        }
+
+        try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
+            fileWriter.write(log_msg);
+        } catch (IOException ignored) {
+        }
+
         return  carvedTestCases;
     }
 
@@ -454,7 +474,8 @@ public class MOSAllisa extends AbstractMOSA {
                 this.population.clear();
                 List<TestCase> gptTestCases = invokeGPT(null, true);
                 if (gptTestCases != null) {
-                    successfulCarvedGPTCalls++;
+                    // ## REPLACE WITH ITS OWN VARIABLE
+                    // successfulCarvedGPTCalls++;
                     for (TestCase tc : gptTestCases) {
                         TestChromosome testChromosome = new TestChromosome();
                         testChromosome.setTestCase(tc);
@@ -538,9 +559,9 @@ public class MOSAllisa extends AbstractMOSA {
             Path directory = Paths.get(Properties.ML_REPORTS_DIR);
             Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/report.txt");
             // Ensure the directory exists
-            if (Files.exists(directory)) {
+            if (Files.exists(filepath)) {
                 try {
-                    Files.walk(directory).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+                    Files.delete(filepath);
                 } catch (Exception ignored) {
                 }
             }
@@ -552,17 +573,26 @@ public class MOSAllisa extends AbstractMOSA {
 
             // Open or create the file, and append to its contents
             try (FileWriter fileWriter = new FileWriter(filepath.toString(), true)) {
-                fileWriter.write("#### MOSALLISA STATS ####\n");
+                fileWriter.write("#### MOSALLISA STATS ####\n\n");
                 if (Properties.USE_CODAMOSA) {
                     fileWriter.write("- CODAMOSA\n");
+                    fileWriter.write("  - Successfully Carved: " + successfulCODAMOSAGPTCalls + "/" + totalCODAMOSAGPTCalls + "\n\n");
                 }
                 if (Properties.USE_GPT_MUTATION) {
-                    fileWriter.write("- GPT MUTATION\n");
+                    fileWriter.write("- MUTATION STATS\n");
+                    fileWriter.write("  - Standard:\n");
+                    fileWriter.write("    - Deletes: " + TestChromosome.Mdelete + "/" + TestChromosome.AT_Mdelete +
+                            " Changes: " + TestChromosome.Mchange + "/" + TestChromosome.AT_Mchange + " Inserts: " +
+                            TestChromosome.Minsert + "/" + TestChromosome.AT_Minsert + "\n");
+                    fileWriter.write("  - GPT:\n");
+                    fileWriter.write("    - Deletes: " + TestChromosome.GPTMdelete + "/" + TestChromosome.AT_GPTMdelete +
+                            " Changes: " + TestChromosome.GPTMchange + "/" + TestChromosome.AT_GPTMchange +
+                            " Inserts: " + TestChromosome.GPTMinsert + "/" + TestChromosome.AT_GPTMinsert + "\n\n");
                 }
                 if (Properties.USE_GPT_CROSSOVER) {
-                    fileWriter.write("- GPT CROSSOVER\n");
+                    fileWriter.write("- GPT CROSSOVER STATS\n");
                     fileWriter.write("  - Successful GPT Calls: " + succesfulGPTCrossovers + "/" + gptCrossoverAttempts + "\n");
-                    fileWriter.write("  - Total Crossovers: " + totalCrossoverCalls + "\n");
+                    fileWriter.write("  - Total Crossovers: " + totalCrossoverCalls + "\n\n");
                 }
                 if (Properties.USE_GPT_INITIAL_POPULATION) {
                     fileWriter.write("- GPT INITIAL POPULATION\n");
@@ -576,19 +606,9 @@ public class MOSAllisa extends AbstractMOSA {
         }
 
         System.out.println("Iterations: " + this.currentIteration);
-        System.out.println();
-        System.out.println("Sucessful GPT Calls in Evolution: " + successfulCarvedGPTCalls + "/" + totalGPTCalls);
-        System.out.println();
 //        System.out.println("Total GPT Tests Added to Offspring Population: " + gptTestsAddedToOffSpringPop);
 //        System.out.println("Running sum of gpt tests added to sorted population: " + totalGPTTestsAddedToSortedPop);
-        System.out.println("STANDARD MUTATION STATS:");
-        System.out.println("DELETES: " + TestChromosome.Mdelete + "/" + TestChromosome.AT_Mdelete + " CHANGES: " + TestChromosome.Mchange + "/" + TestChromosome.AT_Mchange + " INSERTS: " + TestChromosome.Minsert + "/" + TestChromosome.AT_Minsert);
-        System.out.println("GPT MUTATION STATS:");
-        System.out.println("DELETES: " + TestChromosome.GPTMdelete + "/" + TestChromosome.AT_GPTMdelete + " CHANGES: " + TestChromosome.GPTMchange + "/" + TestChromosome.AT_GPTMchange + " INSERTS: " + TestChromosome.GPTMinsert + "/" + TestChromosome.AT_GPTMinsert);
-        System.out.println("TOTAL SUCCESSFUL MUTATIONS: " + TestChromosome.Mchanged);
-        System.out.println();
-        System.out.println("successfulGPTCrossovers: " + succesfulGPTCrossovers + " totalCrossoverCalls: " + totalCrossoverCalls + " gptCrossoverAttempts: " + gptCrossoverAttempts);
-
+//        System.out.println("TOTAL SUCCESSFUL MUTATIONS: " + TestChromosome.Mchanged);
         this.notifySearchFinished();
     }
     /**
