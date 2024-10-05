@@ -11,6 +11,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.nio.file.Paths;
 import java.nio.file.Path;
@@ -31,19 +32,6 @@ public class CompileGentests {
             first_use = false;
         }
 
-//        try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
-//            fileWriter.write("CP: " + Properties.CP + " PROJECT_PREFIX: " + Properties.PROJECT_PREFIX +
-//                    " CLASS_PREFIX: " + Properties.CLASS_PREFIX + " SUB_PREFIX: " + Properties.SUB_PREFIX +
-//                    " TARGET_CLASS: " + Properties.TARGET_CLASS + "\n");
-//        } catch (IOException ignored) {
-//        }
-//
-//        try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
-//        fileWriter.write("CP: " + Properties.CP + " CP_FILE_PATH: " + Properties.CP_FILE_PATH +
-//                " PROJECT_DIR: " + Properties.PROJECT_DIR + "\n");
-//        } catch (IOException ignored) {
-//        }
-
         File junit_jar = new File(junit_path);
         File hamcrest_jar = new File(hamcrest_path);
         // Check if the jars are present
@@ -51,35 +39,47 @@ public class CompileGentests {
             writeToGPTLogFile("COULD NOT LOCATE DEPENDENCY JARS\n");
             return null;
         }
+
         // Get the Java compiler
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        // Prepare a writer to capture compiler output
-        StringWriter writer = new StringWriter();
-        // Set classpath
-        String compilerClassPath = Properties.CP + ":" + junit_path + ":" + hamcrest_path;
-        compilerClassPath = compilerClassPath.replace('/', File.separatorChar);
-        // Prepare output path for compiler
-        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
-        try {
-            fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(Properties.CP)));
-        } catch (IOException e) {
-            writeToGPTLogFile("Failed to set output directory: " + Properties.CP + "Error: " + e.getMessage() + "\n");
+        if (compiler == null) {
+            writeToGPTLogFile("NO COMPILER AVAILABLE");
             return null;
         }
+        // Set classpath
+        String compilerClassPath = Properties.CP + File.pathSeparator + junit_path + File.pathSeparator + hamcrest_path;
+        compilerClassPath = compilerClassPath.replace('/', File.separatorChar);
+        compilerClassPath = compilerClassPath.replace(';', File.pathSeparatorChar);
         // Prepare the compilation task with the classpath
         Iterable<String> options = Arrays.asList("-classpath", compilerClassPath);
         writeToGPTLogFile("Compiler options: " + options + "\n");
         writeToGPTLogFile("Compiler classpath: " + compilerClassPath + "\n");
         writeToGPTLogFile("user.dir: " + System.getProperty("user.dir") + "\n");
-        JavaCompiler.CompilationTask task = compiler.getTask(writer, fileManager, null, options, null,
-                Arrays.asList(new JavaSourceFromString("ClassTest", Properties.OUTPUT_DIR)));
-        // Compile the source code
+        writeToGPTLogFile("Class prefix: " + Properties.CLASS_PREFIX + "\n");
+
+        // Set output dir for compiler
+        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+        // Set the output directory for the compiled classes
+//        String output_path = (Properties.CP).split(":")[0] + File.separatorChar + Properties.CLASS_PREFIX;
+//        try {
+//            File outputDir = new File(output_path);
+//            fileManager.setLocation(javax.tools.StandardLocation.CLASS_OUTPUT, Arrays.asList(outputDir));
+//        } catch (Exception e) {
+//            writeToGPTLogFile("FAILED TO SET OUTPUT DIR: " + e.getMessage() + "\n");
+//            return null;
+//        }
+        // Get the compilation units (i.e., the files to compile)
+        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromStrings(Arrays.asList("ClassTest.java"));
+        // Compile the file with the classpath
+        JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, null, options, null, compilationUnits);
+        // Compile the code
         boolean success = task.call();
+
         // Carve tests if compilation was successful
         if (success) {
             writeToGPTLogFile("GPT TEST COMPILATION: SUCCESS\n");
             // Load the class
-            File classesDir = new File(Properties.CP);
+            File classesDir = new File("." + File.separatorChar);
             Class<?> dynamicClass;
             try {
                 URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { classesDir.toURI().toURL() });
@@ -102,19 +102,18 @@ public class CompileGentests {
             List<TestCase> carvedTestCases = factory.getCarvedTestCases();
             // Reset the property
             Properties.skip_fitness_calculation = false;
-            writeToGPTLogFile("Carved TestCases:\n" + carvedTestCases + "\n");
+            clean_temp_files();
             if (carvedTestCases != null) {
                 if (carvedTestCases.isEmpty()) {
                     return null;
                 }
             }
+            writeToGPTLogFile("Carved TestCases:\n" + carvedTestCases + "\n");
             return carvedTestCases;
         } else {
             // Print compiler errors
-            //System.out.println("Compilation failed:");
+            clean_temp_files();
             writeToGPTLogFile("GPT TEST COMPILATION: FAILED\n");
-            writeToGPTLogFile(writer.toString());
-            //System.out.println(writer.toString());
             return null;
         }
     }
@@ -161,6 +160,17 @@ public class CompileGentests {
         try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
             fileWriter.write(msg);
         } catch (IOException ignored) {
+        }
+    }
+
+    private static void clean_temp_files() {
+        // Delete generated class files
+        Path path = Paths.get("." + File.separatorChar + "ClassTest.java");
+        Path path1 = Paths.get("." + File.separatorChar + "ClassTest.class");
+        try {
+            Files.delete(path);
+            Files.delete(path1);
+        } catch (Exception ignored) {
         }
     }
 }

@@ -46,6 +46,9 @@ public class GPTRequest {
         }
         try {
             writeToGPTLogFile("== REQUEST: " + request_counter + " ==\n");
+            writeToGPTLogFile("== PROMPT ==\n");
+            writeToGPTLogFile(prompt);
+            writeToGPTLogFile("============\n");
 //            writeToGPTLogFile(prompt + "\n");
             URL obj = new URL(url);
             HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
@@ -131,19 +134,8 @@ public class GPTRequest {
     }
 
     public static void writeGPTtoFile(String gptReponse){
-        Path directory = Paths.get(Properties.OUTPUT_DIR);
-        // Ensure the directory exists
-        if (Files.exists(directory)) {
-            try {
-                Files.walk(directory).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-            } catch (Exception ignored) {
-            }
-        }
-        try {
-            Files.createDirectories(directory);
-        } catch (Exception ignored) {
-        }
-        try (PrintWriter out = new PrintWriter(Properties.OUTPUT_DIR + File.separatorChar + "ClassTest.java")) {
+        String output_file = "ClassTest.java";
+        try (PrintWriter out = new PrintWriter(output_file)) {
             out.println(gptReponse);
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);

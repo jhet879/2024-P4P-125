@@ -79,7 +79,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.util.*;
-import org.evosuite.gpt.JDecompiler;
 
 /**
  * Main entry point. Does all the static analysis, invokes a test generation

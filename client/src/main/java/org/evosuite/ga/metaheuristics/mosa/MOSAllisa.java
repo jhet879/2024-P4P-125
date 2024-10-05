@@ -84,8 +84,6 @@ public class MOSAllisa extends AbstractMOSA {
             "tests wherever possible. Call the class, 'ClassTest'. Do not add any package statements. Use org.junit.Test" +
             "and org.junit.Assert.* for the imports.\nClass under test:\n```\n%s\n```\nCriterion:\n%s";
 
-    private final Lock gpt_lock = new ReentrantLock();
-
     /**
      * Manager to determine the test goals to consider at each generation
      */
@@ -276,9 +274,7 @@ public class MOSAllisa extends AbstractMOSA {
                     rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
                     if (!rankedGoals.isEmpty()) {
                         totalCODAMOSAGPTCalls++;
-                        gpt_lock.lock();
                         List<TestCase> gptTestCases = invokeGPT(rankedGoals, false);
-                        gpt_lock.unlock();
                         if (gptTestCases != null) {
                             successfulCODAMOSAGPTCalls++;
                             for (TestCase tc : gptTestCases) {
@@ -329,6 +325,7 @@ public class MOSAllisa extends AbstractMOSA {
             classAsString = new String(Files.readAllBytes(Paths.get(Properties.PATH_TO_CUT)));
         } catch (IOException e) {
             System.out.println("IO ERROR");
+            GPTRequest.writeGPTtoFile("FAILED TO GET CLASS AS STRING");
             return carvedTestCases;
         }
         // Prepare the request for ChatGPT

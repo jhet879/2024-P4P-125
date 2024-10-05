@@ -88,11 +88,9 @@ public class CarvingClassLoader extends ClassLoader {
 
         try {
             String className = fullyQualifiedTargetClass.replace('.', '/');
-
             InputStream is;
-
             if (fullyQualifiedTargetClass.contains("ClassTest")) {
-                File classesDir = new File("../master/");
+                File classesDir = new File("." + File.separatorChar);
                 URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { classesDir.toURI().toURL() });
                 is = classLoader.getResourceAsStream("ClassTest.class");
             } else {
