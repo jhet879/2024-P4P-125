@@ -20,35 +20,18 @@ import java.util.stream.Collectors;
 public class GPTRequest {
 
     static int request_counter = 0;
-    static boolean first_entry = true;
-
-    public static String chatGPT(String prompt) {
+    public static String GPT_4O = "gpt-4o";
+    public static String GPT_4O_MINI = "gpt-4o-mini";
+    public static String chatGPT(String prompt, String model) {
         String url = "https://api.openai.com/v1/chat/completions";
         String apiKey = Properties.GPT_KEY;
-        String model = "gpt-4o-mini";
+        //String model = "gpt-4o-mini";
         request_counter++;
-
-        Path directory = Paths.get(Properties.ML_REPORTS_DIR);
-        Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt");
-        // Ensure the directory exists
-        if (!Files.exists(directory)) {
-            try {
-                Files.createDirectories(directory);
-                Files.createFile(filepath);
-            } catch (Exception ignored) {
-            }
-        } else if (first_entry) {
-            try {
-                Files.delete(filepath);
-                first_entry = false;
-            } catch (IOException ignored) {
-            }
-        }
         try {
             writeToGPTLogFile("== REQUEST: " + request_counter + " ==\n");
-            writeToGPTLogFile("== PROMPT ==\n");
-            writeToGPTLogFile(prompt);
-            writeToGPTLogFile("============\n");
+//            writeToGPTLogFile("== PROMPT ==\n");
+//            writeToGPTLogFile(prompt);
+//            writeToGPTLogFile("============\n");
 //            writeToGPTLogFile(prompt + "\n");
             URL obj = new URL(url);
             HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
@@ -67,7 +50,7 @@ public class GPTRequest {
             Map<String, Object> jsonMap = new HashMap<>();
 //            jsonMap.put("model", "gpt-4o-mini");
 //            jsonMap.put("model", "gpt-4");
-            jsonMap.put("model", "gpt-4o");
+            jsonMap.put("model", model);
             jsonMap.put("messages", new Map[]{message});
 
             String jsonInputString = objectMapper.writeValueAsString(jsonMap);
@@ -93,8 +76,8 @@ public class GPTRequest {
             // calls the method to extract the message.
             return response.toString();
         } catch (Exception e) {
-            writeToGPTLogFile("GPT REQUEST FAILURE: " + e.getMessage() + "\n");
-            throw new RuntimeException(e);
+            writeToGPTLogFile("GPT REQUEST FAILURE: " + e.getMessage() + "TRYING AGAIN\n");
+            return "FAIL";
         }
     }
 

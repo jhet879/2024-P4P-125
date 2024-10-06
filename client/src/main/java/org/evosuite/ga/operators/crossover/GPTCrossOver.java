@@ -39,7 +39,7 @@ public class GPTCrossOver<T extends Chromosome<T>> extends CrossOverFunction<T> 
             try {
                 // Make request to GPT
                 String gptPrompt = String.format(gptCrossoverPrompt, parent1, parent2);
-                String initialGPTResponse = GPTRequest.chatGPT(gptPrompt);
+                String initialGPTResponse = GPTRequest.chatGPT(gptPrompt, GPTRequest.GPT_4O_MINI);
                 // Extract lines from response
                 ArrayList<Integer> linesToDelete = GPTRequest.extractArrayFromString(initialGPTResponse);
                 pos1 = linesToDelete.get(0);

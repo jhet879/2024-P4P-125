@@ -275,7 +275,7 @@ public class TestSuiteGenerator {
             // Make request to GPT
             String outputName = name+"_NON_REGRESSION";
             String gptRequest = String.format(non_regression_gpt_prompt, outputName, Properties.PROJECT_PREFIX, classAsString, testSuiteCopy);
-            String initialGPTResponse = GPTRequest.chatGPT(gptRequest);
+            String initialGPTResponse = GPTRequest.chatGPT(gptRequest, GPTRequest.GPT_4O);
             System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
             String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
             // TODO FIND A BETTER SOLUTION TO OMITTING THE UNWANTED ESCAPE CHARACTERS FROM GPT?

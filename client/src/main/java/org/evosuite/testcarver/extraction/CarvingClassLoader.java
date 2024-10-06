@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcarver.extraction;
 
+import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.instrumentation.JSRInlinerClassVisitor;
@@ -90,7 +91,7 @@ public class CarvingClassLoader extends ClassLoader {
             String className = fullyQualifiedTargetClass.replace('.', '/');
             InputStream is;
             if (fullyQualifiedTargetClass.contains("ClassTest")) {
-                File classesDir = new File("." + File.separatorChar);
+                File classesDir = new File(Properties.CLASS_PREFIX);
                 URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { classesDir.toURI().toURL() });
                 is = classLoader.getResourceAsStream("ClassTest.class");
             } else {

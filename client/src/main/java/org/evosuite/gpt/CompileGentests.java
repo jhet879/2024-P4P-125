@@ -18,16 +18,14 @@ import java.nio.file.Path;
 
 public class CompileGentests {
 
-    public static String junit_path = "target/dependency/junit-4.12.jar";
-    public static String hamcrest_path = "target/dependency/hamcrest-core-1.3.jar";
+    public static String junit_path = "junit-4.12.jar";
+    public static String hamcrest_path = "hamcrest-core-1.3.jar";
     public static String tests_class_path = "target/test-classes";
     private static boolean first_use = true;
 
     public static List<TestCase> compileAndCarveTests(String cutClassPath) {
         // Modifify the links to the jar paths if it is a system test
         if (Properties.IS_RUNNING_A_SYSTEM_TEST && first_use){
-            junit_path = "../"+junit_path;
-            hamcrest_path = "../"+hamcrest_path;
             tests_class_path = "../"+tests_class_path;
             first_use = false;
         }
@@ -51,14 +49,21 @@ public class CompileGentests {
         compilerClassPath = compilerClassPath.replace('/', File.separatorChar);
         compilerClassPath = compilerClassPath.replace(';', File.pathSeparatorChar);
         // Prepare the compilation task with the classpath
-        Iterable<String> options = Arrays.asList("-classpath", compilerClassPath);
-        writeToGPTLogFile("Compiler options: " + options + "\n");
+        Iterable<String> options;
         writeToGPTLogFile("Compiler classpath: " + compilerClassPath + "\n");
         writeToGPTLogFile("user.dir: " + System.getProperty("user.dir") + "\n");
         writeToGPTLogFile("Class prefix: " + Properties.CLASS_PREFIX + "\n");
 
         // Set output dir for compiler
+        File outputDirFile = new File(Properties.CLASS_PREFIX);
+        if (!outputDirFile.exists()) {
+            outputDirFile.mkdirs();
+        }
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+        // Specify the options for the compiler
+        options = Arrays.asList("-classpath", compilerClassPath, "-d", Properties.CLASS_PREFIX);
+        writeToGPTLogFile("Compiler options: " + options + "\n");
+        System.out.println("Compilation completed. Class files are in: " + Properties.CLASS_PREFIX);
         // Set the output directory for the compiled classes
 //        String output_path = (Properties.CP).split(":")[0] + File.separatorChar + Properties.CLASS_PREFIX;
 //        try {
@@ -70,8 +75,10 @@ public class CompileGentests {
 //        }
         // Get the compilation units (i.e., the files to compile)
         Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromStrings(Arrays.asList("ClassTest.java"));
+        // Diagnostic listener to capture errors
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         // Compile the file with the classpath
-        JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, null, options, null, compilationUnits);
+        JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, options, null, compilationUnits);
         // Compile the code
         boolean success = task.call();
 
@@ -79,14 +86,13 @@ public class CompileGentests {
         if (success) {
             writeToGPTLogFile("GPT TEST COMPILATION: SUCCESS\n");
             // Load the class
-            File classesDir = new File("." + File.separatorChar);
+            File classesDir = new File(Properties.CLASS_PREFIX);
             Class<?> dynamicClass;
             try {
                 URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { classesDir.toURI().toURL() });
                 dynamicClass = Class.forName("ClassTest", true, classLoader);
-            } catch (Exception e) {
-                writeToGPTLogFile("FAILED TO LOAD CLASSTEST: " + e.getMessage() + "\n");
-                System.out.println("Exception: " + e.getMessage());
+            } catch (Exception ignored) {
+                writeToGPTLogFile("FAILED TO LOAD CLASSTEST: " + ignored.getMessage() + "\n");
                 return null;
             }
             writeToGPTLogFile("SUCCESSFULLY LOADED CLASSTEST\n");
@@ -107,13 +113,17 @@ public class CompileGentests {
                 if (carvedTestCases.isEmpty()) {
                     return null;
                 }
+                writeToGPTLogFile("Carved TestCases: " + carvedTestCases.size() + "\n");
             }
-            writeToGPTLogFile("Carved TestCases:\n" + carvedTestCases + "\n");
             return carvedTestCases;
         } else {
             // Print compiler errors
             clean_temp_files();
             writeToGPTLogFile("GPT TEST COMPILATION: FAILED\n");
+            for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+                writeToGPTLogFile("Error on line " + diagnostic.getLineNumber() + " in " + diagnostic.getSource().getName());
+                writeToGPTLogFile(diagnostic.getMessage(null));
+            }
             return null;
         }
     }
@@ -168,8 +178,8 @@ public class CompileGentests {
         Path path = Paths.get("." + File.separatorChar + "ClassTest.java");
         Path path1 = Paths.get("." + File.separatorChar + "ClassTest.class");
         try {
-            Files.delete(path);
-            Files.delete(path1);
+//            Files.delete(path);
+//            Files.delete(path1);
         } catch (Exception ignored) {
         }
     }

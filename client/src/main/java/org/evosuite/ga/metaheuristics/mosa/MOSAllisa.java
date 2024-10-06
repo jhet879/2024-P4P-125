@@ -19,7 +19,6 @@
  */
 package org.evosuite.ga.metaheuristics.mosa;
 
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
@@ -39,15 +38,12 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.evosuite.gpt.*;
 
@@ -66,23 +62,36 @@ public class MOSAllisa extends AbstractMOSA {
 
     private static final Logger logger = LoggerFactory.getLogger(MOSAllisa.class);
 
-    public static int totalCODAMOSAGPTCalls = 0;
-    public static int successfulCODAMOSAGPTCalls = 0;
+    public static boolean first_entry = true;
+
+    public static int totalCODAMOSACarvingCalls = 0;
+    public static int successfulCODAMOSACarvingCalls = 0;
+    public static int totalGPTCarvingCalls = 0;
+    public static int successfulGPTCarvingCalls = 0;
     public int gptTestsAddedToOffSpringPop = 0;
     public int totalGPTTestsAddedToSortedPop = 0;
     public static int totalCrossoverCalls = 0;
     public static int succesfulGPTCrossovers = 0;
     public static int gptCrossoverAttempts = 0;
 
-    static String algo_test_gen_prompt = "Given the Java class under test, lines of the class where test goals have not been met " +
-            "generate stand-alone (no @Before, all the tests are self-contained) tests that can cover these goals, combine " +
-            "tests wherever possible. Call the class, 'ClassTest'. Do not add any import/package statements, only add imports " +
-            "required for JUnit and any exceptions that are used.\nClass under test:\n```\n%s\n```\nlinesToCover:\n%s";
+    static String algo_test_gen_prompt = "Given the Java class under test: (note that the class may be cut off) and lines " +
+            " of the class where test goals have not been met:\n" +
+            "- Generate stand-alone JUnit 4 tests that can cover these goals.\n" +
+            "- The tests should be self-contained, meaning no @Before methods should be used.\n" +
+            "- Name the test class 'ClassTest'.\n" +
+            "- **IMPORTANT:** Do NOT include any references to private methods or fields in the tests unless they " +
+            "can be accessed through public methods.\n" +
+            "- Only public and protected methods and fields may be used in the tests.\n" +
+            "- Do not use Mockito." +
+            "- **IMPORTANT:** Import the necessary classes from this classpath, %s, including the class under test: %s.\n" +
+            "- **IMPORTANT:** Additionally, import any other required java classes.\n" +
+            "\nClass under test:\n```\n%s\n```\nlinesToCover:\n%s";
 
-    static String initial_test_gen_prompt = "Given the Java class under test, and some coverage criterion, generate %d " +
-            "stand-alone (no @Before, all the tests are self-contained) tests that can cover these criterion, combine " +
-            "tests wherever possible. Call the class, 'ClassTest'. Do not add any package statements. Use org.junit.Test" +
-            "and org.junit.Assert.* for the imports.\nClass under test:\n```\n%s\n```\nCriterion:\n%s";
+    static String initial_test_gen_prompt = "Given the Java class under test (note that the class may be cut off, work with " +
+            "what you have, do not ask for more), and some coverage criterion, generate %d stand-alone (no @Before, all the " +
+            "tests are self-contained) JUNIT4 tests that can cover these criterion, combine tests wherever possible. Call the class, " +
+            "'ClassTest'. Do not add any package statements. Use org.junit.Test and org.junit.Assert.* for the imports. " +
+            "\nClass under test:\n```\n%s\n```\nCriterion:\n%s";
 
     /**
      * Manager to determine the test goals to consider at each generation
@@ -273,17 +282,19 @@ public class MOSAllisa extends AbstractMOSA {
                     Set<TestFitnessFunction> rankedGoals;
                     rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
                     if (!rankedGoals.isEmpty()) {
-                        totalCODAMOSAGPTCalls++;
+                        totalCODAMOSACarvingCalls++;
                         List<TestCase> gptTestCases = invokeGPT(rankedGoals, false);
                         if (gptTestCases != null) {
-                            successfulCODAMOSAGPTCalls++;
-                            for (TestCase tc : gptTestCases) {
-                                gptTestsAddedToOffSpringPop++;
-                                TestChromosome testChromosome = new TestChromosome();
-                                testChromosome.setTestCase(tc);
-                                testChromosome.set_gpt_status(true);
-                                this.calculateFitness(testChromosome);
-                                offspringPopulation.add(testChromosome);
+                            if (!gptTestCases.isEmpty()) {
+                                successfulCODAMOSACarvingCalls++;
+                                for (TestCase tc : gptTestCases) {
+                                    gptTestsAddedToOffSpringPop++;
+                                    TestChromosome testChromosome = new TestChromosome();
+                                    testChromosome.setTestCase(tc);
+                                    testChromosome.set_gpt_status(true);
+                                    this.calculateFitness(testChromosome);
+                                    offspringPopulation.add(testChromosome);
+                                }
                             }
                         }
                     }
@@ -318,16 +329,42 @@ public class MOSAllisa extends AbstractMOSA {
     }
 
     private List<TestCase> invokeGPT(Set<TestFitnessFunction> goals, Boolean isForInitialPop) {
+        // Create logging file
+        Path directory = Paths.get(Properties.ML_REPORTS_DIR);
+        Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt");
+        // Ensure the directory exists
+        if (!Files.exists(directory)) {
+            try {
+                Files.createDirectories(directory);
+                Files.createFile(filepath);
+                first_entry = false;
+            } catch (Exception ignored) {
+            }
+        } else if (first_entry) {
+            try {
+                Files.delete(filepath);
+                first_entry = false;
+            } catch (IOException ignored) {
+            }
+        }
+
         List<TestCase> carvedTestCases = new ArrayList<>();
+
         // Get the class as a string
         String classAsString;
         try {
             classAsString = new String(Files.readAllBytes(Paths.get(Properties.PATH_TO_CUT)));
+            // Trim class if it is too large
+            if (classAsString.length() > 35000) {
+                classAsString = classAsString.substring(0, 35000);
+            }
+            writeToGPTLogFile("CLASS LENGTH: " + classAsString.length() + "\n");
         } catch (IOException e) {
             System.out.println("IO ERROR");
-            GPTRequest.writeGPTtoFile("FAILED TO GET CLASS AS STRING");
+            writeToGPTLogFile("FAILED TO GET CLASS AS STRING\n");
             return carvedTestCases;
         }
+
         // Prepare the request for ChatGPT
         StringBuilder sb = new StringBuilder();
         String gptString;
@@ -340,38 +377,78 @@ public class MOSAllisa extends AbstractMOSA {
             for (TestFitnessFunction test_func : goals) {
                 sb.append(test_func + "\n");
             }
-            gptString = String.format(algo_test_gen_prompt, classAsString, sb);
-        }
-        // Make call to GPT
-        String initialGPTResponse = GPTRequest.chatGPT(gptString);
-        String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
-        formattedResponse = GPTRequest.cleanResponse(formattedResponse);
-        // TODO DETERMINE IF THIS IS SUFFICIENT
-        formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
-        GPTRequest.writeGPTtoFile(formattedResponse);
-
-        String log_msg = "CARVING: FAILED\n\n";
-
-        try {
-            // Carve the testcases from the gpt response
-            carvedTestCases = CompileGentests.compileAndCarveTests(Properties.CP);
-        } catch (Exception e) {
-            try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
-                fileWriter.write(log_msg);
-            } catch (IOException ignored) {
+            String fitnessFuncs = sb.toString();
+            // Trim fitness functions if it is too large
+            if (fitnessFuncs.length() > 5000) {
+                fitnessFuncs = fitnessFuncs.substring(0, 5000);
             }
-            return carvedTestCases;
+            writeToGPTLogFile("FITNESS FUNC LENGTH: " + fitnessFuncs.length() + "\n");
+            gptString = String.format(algo_test_gen_prompt, Properties.CP, Properties.TARGET_CLASS,classAsString, fitnessFuncs);
         }
-        if (carvedTestCases != null) {
-            log_msg = "CARVING: SUCCESS\n\n";
-        }
+        int carving_attempt_count = 0;
+        while (carving_attempt_count < 5) {
+            int gpt_fail_counter = 0;
+            String initialGPTResponse = "";
+            // Make 5 attempts at calling GPT
+            while (gpt_fail_counter < 3) {
+                // Make call to GPT
+                initialGPTResponse = GPTRequest.chatGPT(gptString, GPTRequest.GPT_4O);
+                totalGPTCarvingCalls++;
+                if (!initialGPTResponse.equals("FAIL")){
+                    break;
+                }
+                gpt_fail_counter++;
+                try {
+                    Thread.sleep(20000);
+                } catch (Exception ignored) {
+                }
+            }
+            if (initialGPTResponse.equals("FAIL")) {
+                writeToGPTLogFile("EXCEEDED GPT REQUEST ATTEMPTS\n");
+                return carvedTestCases;
+            }
+            successfulGPTCarvingCalls++;
+            String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+            formattedResponse = GPTRequest.cleanResponse(formattedResponse);
+            // TODO DETERMINE IF THIS IS SUFFICIENT
+    //        formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
+            GPTRequest.writeGPTtoFile(formattedResponse);
 
+            try {
+                // Carve the testcases from the gpt response
+                carvedTestCases = CompileGentests.compileAndCarveTests(Properties.CP);
+                if (carvedTestCases != null) {
+                    if (!carvedTestCases.isEmpty()) {
+                        writeToGPTLogFile("CARVING: SUCCESS\n");
+                        break;
+                    } else {
+                        carving_attempt_count++;
+                        writeToGPTLogFile("CARVING: FAILED + " + carving_attempt_count + "\n");
+                        Thread.sleep(15000);
+                    }
+                } else {
+                    carving_attempt_count++;
+                    writeToGPTLogFile("CARVING: FAILED + " + carving_attempt_count + "\n");
+                    Thread.sleep(15000);
+                }
+            } catch (Exception ignored) {
+                carving_attempt_count++;
+                writeToGPTLogFile("CARVING: FAILED + " + carving_attempt_count + "\n");
+                try {
+                    Thread.sleep(15000);
+                } catch (InterruptedException ignored1) {
+                }
+            }
+        }
+        writeToGPTLogFile("\n");
+        return  carvedTestCases;
+    }
+
+    private static void writeToGPTLogFile(String msg) {
         try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
-            fileWriter.write(log_msg);
+            fileWriter.write(msg);
         } catch (IOException ignored) {
         }
-
-        return  carvedTestCases;
     }
 
     /**
@@ -571,9 +648,10 @@ public class MOSAllisa extends AbstractMOSA {
             // Open or create the file, and append to its contents
             try (FileWriter fileWriter = new FileWriter(filepath.toString(), true)) {
                 fileWriter.write("#### MOSALLISA STATS ####\n\n");
+                fileWriter.write("Successful Carving GPT Requests: " + successfulGPTCarvingCalls + "/" + totalGPTCarvingCalls + "\n\n");
                 if (Properties.USE_CODAMOSA) {
                     fileWriter.write("- CODAMOSA\n");
-                    fileWriter.write("  - Successfully Carved: " + successfulCODAMOSAGPTCalls + "/" + totalCODAMOSAGPTCalls + "\n\n");
+                    fileWriter.write("  - Successfully Carved: " + successfulCODAMOSACarvingCalls + "/" + totalCODAMOSACarvingCalls + "\n\n");
                 }
                 if (Properties.USE_GPT_MUTATION) {
                     fileWriter.write("- MUTATION STATS\n");
