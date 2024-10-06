@@ -27,7 +27,11 @@ import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.ga.operators.crossover.GPTCrossOver;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
+import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.gpt.CompileGentests;
+import org.evosuite.statistics.OutputVariable;
+import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.strategy.TestGenerationStrategy;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -73,8 +77,11 @@ public class MOSAllisa extends AbstractMOSA {
     public static int totalCrossoverCalls = 0;
     public static int succesfulGPTCrossovers = 0;
     public static int gptCrossoverAttempts = 0;
+    public static int codamosaCalls = 0;
+    public static int GPTInitialPopRetries = 0;
+    public static int GPTInitialPopCarved = 0;
 
-    static String algo_test_gen_prompt = "Given the Java class under test: (note that the class may be cut off) and lines " +
+    static String algo_test_gen_prompt = "Given the Java class under test (note that the class may be cut off) and lines " +
             " of the class where test goals have not been met:\n" +
             "- Generate stand-alone JUnit 4 tests that can cover these goals.\n" +
             "- The tests should be self-contained, meaning no @Before methods should be used.\n" +
@@ -87,10 +94,18 @@ public class MOSAllisa extends AbstractMOSA {
             "- **IMPORTANT:** Additionally, import any other required java classes.\n" +
             "\nClass under test:\n```\n%s\n```\nlinesToCover:\n%s";
 
-    static String initial_test_gen_prompt = "Given the Java class under test (note that the class may be cut off, work with " +
-            "what you have, do not ask for more), and some coverage criterion, generate %d stand-alone (no @Before, all the " +
-            "tests are self-contained) JUNIT4 tests that can cover these criterion, combine tests wherever possible. Call the class, " +
-            "'ClassTest'. Do not add any package statements. Use org.junit.Test and org.junit.Assert.* for the imports. " +
+    static String initial_test_gen_prompt = "Given the Java class under test (note that the class may be cut off) and the " +
+            "coverage criterion:\n" +
+            "- Generate %d stand-alone JUnit 4 tests that can cover these goals.\n" +
+            "- The tests should be self-contained, meaning no @Before methods should be used.\n" +
+            "- Name the test class 'ClassTest'.\n" +
+            "- **IMPORTANT:** Do NOT include any references to private methods or fields in the tests unless they " +
+            "can be accessed through public methods.\n" +
+            "- Only public and protected methods and fields may be used in the tests.\n" +
+            "- Do not use Mockito." +
+            "- **IMPORTANT:** Import the necessary classes from this classpath, %s, including the class under test: %s.\n" +
+            "- **IMPORTANT:** Only import and use the classes that are used in the class under test.\n" +
+            "- **IMPORTANT:** Ensure that the resulting test suite will be compilable as-is. All imports must be accounted for.\n" +
             "\nClass under test:\n```\n%s\n```\nCriterion:\n%s";
 
     /**
@@ -282,7 +297,7 @@ public class MOSAllisa extends AbstractMOSA {
                     Set<TestFitnessFunction> rankedGoals;
                     rankedGoals = this.goalsManager.getLowFitnessBranches(this.population);
                     if (!rankedGoals.isEmpty()) {
-                        totalCODAMOSACarvingCalls++;
+                        codamosaCalls++;
                         List<TestCase> gptTestCases = invokeGPT(rankedGoals, false);
                         if (gptTestCases != null) {
                             if (!gptTestCases.isEmpty()) {
@@ -329,6 +344,7 @@ public class MOSAllisa extends AbstractMOSA {
     }
 
     private List<TestCase> invokeGPT(Set<TestFitnessFunction> goals, Boolean isForInitialPop) {
+        this.resetStoppingConditions();
         // Create logging file
         Path directory = Paths.get(Properties.ML_REPORTS_DIR);
         Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt");
@@ -372,7 +388,7 @@ public class MOSAllisa extends AbstractMOSA {
             for (Properties.Criterion crit : Properties.CRITERION) {
                 sb.append(crit + "\n");
             }
-            gptString = String.format(initial_test_gen_prompt, Properties.POPULATION, classAsString, sb);
+            gptString = String.format(initial_test_gen_prompt, Properties.POPULATION, Properties.CP, Properties.TARGET_CLASS, classAsString, sb);
         } else {
             for (TestFitnessFunction test_func : goals) {
                 sb.append(test_func + "\n");
@@ -387,7 +403,9 @@ public class MOSAllisa extends AbstractMOSA {
         }
         int carving_attempt_count = 0;
         while (carving_attempt_count < 5) {
+            totalCODAMOSACarvingCalls++;
             int gpt_fail_counter = 0;
+            int delay = 0;
             String initialGPTResponse = "";
             // Make 5 attempts at calling GPT
             while (gpt_fail_counter < 3) {
@@ -398,8 +416,9 @@ public class MOSAllisa extends AbstractMOSA {
                     break;
                 }
                 gpt_fail_counter++;
+                delay = 5000*gpt_fail_counter;
                 try {
-                    Thread.sleep(20000);
+                    Thread.sleep(delay);
                 } catch (Exception ignored) {
                 }
             }
@@ -424,18 +443,18 @@ public class MOSAllisa extends AbstractMOSA {
                     } else {
                         carving_attempt_count++;
                         writeToGPTLogFile("CARVING: FAILED + " + carving_attempt_count + "\n");
-                        Thread.sleep(15000);
+                        Thread.sleep(5000);
                     }
                 } else {
                     carving_attempt_count++;
                     writeToGPTLogFile("CARVING: FAILED + " + carving_attempt_count + "\n");
-                    Thread.sleep(15000);
+                    Thread.sleep(5000);
                 }
             } catch (Exception ignored) {
                 carving_attempt_count++;
                 writeToGPTLogFile("CARVING: FAILED + " + carving_attempt_count + "\n");
                 try {
-                    Thread.sleep(15000);
+                    Thread.sleep(5000);
                 } catch (InterruptedException ignored1) {
                 }
             }
@@ -536,36 +555,44 @@ public class MOSAllisa extends AbstractMOSA {
             // Create a random parent population P0
             this.generateInitialPopulation(Properties.POPULATION);
         } else {
-            int carvedTests = 0;
-            int retries = 0;
             Properties.SEARCH_BUDGET = 3600;
             boolean success = false;
-//            Set<TestFitnessFunction> goals;
-//            goals = this.goalsManager.getCurrentGoals();
             // Keep trying to generate tests with GPT until it is successful
             while (!success) {
-                carvedTests = 0;
+                // Switch to normal generation after 2 tries (10 in total which is done in invokeGPT)
+                if (GPTInitialPopRetries >= 2) {
+                    writeToGPTLogFile("Failed to generate tests for initial population after [" + GPTInitialPopRetries + "] attempts, switching to regular generation...\n");
+                    this.generateInitialPopulation(Properties.POPULATION);
+                    this.calculateFitness();
+                    this.notifyIteration();
+                    return;
+                }
+                GPTInitialPopRetries++;
+                GPTInitialPopCarved = 0;
                 this.population.clear();
                 List<TestCase> gptTestCases = invokeGPT(null, true);
                 if (gptTestCases != null) {
-                    // ## REPLACE WITH ITS OWN VARIABLE
-                    // successfulCarvedGPTCalls++;
-                    for (TestCase tc : gptTestCases) {
-                        TestChromosome testChromosome = new TestChromosome();
-                        testChromosome.setTestCase(tc);
-                        testChromosome.set_gpt_status(true);
-                        this.calculateFitness(testChromosome);
-                        //System.out.println("AF " + testChromosome.getFitness());
-                        population.add(testChromosome);
-                        carvedTests++;
+                    if (!gptTestCases.isEmpty()) {
+                        // ## REPLACE WITH ITS OWN VARIABLE
+                        // successfulCarvedGPTCalls++;
+                        for (TestCase tc : gptTestCases) {
+                            TestChromosome testChromosome = new TestChromosome();
+                            testChromosome.setTestCase(tc);
+                            testChromosome.set_gpt_status(true);
+                            this.calculateFitness(testChromosome);
+                            //System.out.println("AF " + testChromosome.getFitness());
+                            population.add(testChromosome);
+                            GPTInitialPopCarved++;
+                        }
+                        success = true;
                     }
-                    success = true;
                 } else {
-                    retries++;
-                    logger.warn("Failed to generated tests for initial population, retrying [" + retries + "]...");
+                    if (GPTInitialPopRetries != 2) {
+                        writeToGPTLogFile("Failed to generated tests for initial population, retrying [" + GPTInitialPopRetries + "]...\n");
+                    }
                 }
             }
-            logger.warn("Successfully generated [" + carvedTests + "] tests for the initial population");
+            writeToGPTLogFile("Successfully generated [" + GPTInitialPopCarved + "] tests for the initial population\n");
         }
         // Determine fitness
         this.calculateFitness();
@@ -630,7 +657,6 @@ public class MOSAllisa extends AbstractMOSA {
 
         if (Properties.USE_CODAMOSA || Properties.USE_GPT_MUTATION || Properties.USE_GPT_CROSSOVER ||
                 Properties.USE_GPT_INITIAL_POPULATION || Properties.USE_GPT_NON_REGRESSION) {
-            Path directory = Paths.get(Properties.ML_REPORTS_DIR);
             Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/report.txt");
             // Ensure the directory exists
             if (Files.exists(filepath)) {
@@ -640,17 +666,17 @@ public class MOSAllisa extends AbstractMOSA {
                 }
             }
             try {
-                Files.createDirectories(directory);
                 Files.createFile(filepath);
             } catch (Exception ignored) {
             }
-
             // Open or create the file, and append to its contents
             try (FileWriter fileWriter = new FileWriter(filepath.toString(), true)) {
                 fileWriter.write("#### MOSALLISA STATS ####\n\n");
-                fileWriter.write("Successful Carving GPT Requests: " + successfulGPTCarvingCalls + "/" + totalGPTCarvingCalls + "\n\n");
+                fileWriter.write("Iterations: " + currentIteration + "\n");
+                fileWriter.write("Successful GPT Requests (Carving Related): " + successfulGPTCarvingCalls + "/" + totalGPTCarvingCalls + "\n\n");
                 if (Properties.USE_CODAMOSA) {
                     fileWriter.write("- CODAMOSA\n");
+                    fileWriter.write("  - CODAMOSA Calls: " + codamosaCalls + "\n");
                     fileWriter.write("  - Successfully Carved: " + successfulCODAMOSACarvingCalls + "/" + totalCODAMOSACarvingCalls + "\n\n");
                 }
                 if (Properties.USE_GPT_MUTATION) {
@@ -671,6 +697,8 @@ public class MOSAllisa extends AbstractMOSA {
                 }
                 if (Properties.USE_GPT_INITIAL_POPULATION) {
                     fileWriter.write("- GPT INITIAL POPULATION\n");
+                    fileWriter.write("  - Attempts: " + GPTInitialPopRetries + "\n");
+                    fileWriter.write("  - Carved Tests: " + GPTInitialPopCarved + "\n\n");
                 }
                 if (Properties.USE_GPT_NON_REGRESSION) {
                     fileWriter.write("GPT NON-REGRESSION\n");

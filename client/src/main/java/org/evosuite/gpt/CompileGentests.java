@@ -63,16 +63,6 @@ public class CompileGentests {
         // Specify the options for the compiler
         options = Arrays.asList("-classpath", compilerClassPath, "-d", Properties.CLASS_PREFIX);
         writeToGPTLogFile("Compiler options: " + options + "\n");
-        System.out.println("Compilation completed. Class files are in: " + Properties.CLASS_PREFIX);
-        // Set the output directory for the compiled classes
-//        String output_path = (Properties.CP).split(":")[0] + File.separatorChar + Properties.CLASS_PREFIX;
-//        try {
-//            File outputDir = new File(output_path);
-//            fileManager.setLocation(javax.tools.StandardLocation.CLASS_OUTPUT, Arrays.asList(outputDir));
-//        } catch (Exception e) {
-//            writeToGPTLogFile("FAILED TO SET OUTPUT DIR: " + e.getMessage() + "\n");
-//            return null;
-//        }
         // Get the compilation units (i.e., the files to compile)
         Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromStrings(Arrays.asList("ClassTest.java"));
         // Diagnostic listener to capture errors
