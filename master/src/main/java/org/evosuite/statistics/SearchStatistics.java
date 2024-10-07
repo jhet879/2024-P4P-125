@@ -19,6 +19,8 @@
  */
 package org.evosuite.statistics;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
 import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
@@ -36,6 +38,9 @@ import org.evosuite.coverage.mutation.OnlyMutationSuiteFitness;
 import org.evosuite.coverage.mutation.WeakMutationSuiteFitness;
 import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.metaheuristics.mosa.MOSA;
+import org.evosuite.ga.metaheuristics.mosa.MOSAllisa;
+import org.evosuite.gpt.CompileGentests;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientState;
@@ -44,6 +49,7 @@ import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.statistics.backend.StatisticsBackend;
 import org.evosuite.statistics.backend.StatisticsBackendFactory;
 import org.evosuite.symbolic.dse.DSEStatistics;
+import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Listener;
 import org.evosuite.utils.LoggingUtils;
@@ -51,6 +57,7 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.*;
 
 
@@ -400,8 +407,26 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             logger.error("Not going to write down statistics data, as some data is invalid");
             return false;
         } else {
+            writeToJson(map);
             backend.writeData(individual, map);
             return true;
+        }
+    }
+
+    private void writeToJson(Map<String, OutputVariable<?>> map){
+        try {
+            Map<String, Object> data = new HashMap<>();
+            // COVERAGE METRICS
+            data.put("t_cov", map.get(RuntimeVariable.Coverage.toString()).getValue());
+            data.put("l_cov", map.get(RuntimeVariable.LineCoverage.toString()).getValue());
+            data.put("b_cov", map.get(RuntimeVariable.BranchCoverage.toString()).getValue());
+            ObjectMapper mapper = new ObjectMapper();
+//            String jsonString = mapper.writeValueAsString(data);
+//            System.out.println(jsonString);
+            File file = new File(Properties.ML_REPORTS_DIR + File.separator + "stats.json");
+            mapper.writeValue(file, data);
+        } catch (Exception ignored) {
+            CompileGentests.writeToGPTLogFile("Failed to save JSON stats file " + ignored);
         }
     }
 

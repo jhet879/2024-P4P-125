@@ -28,6 +28,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
 import org.evosuite.ga.operators.mutation.MutationHistory;
+import org.evosuite.gpt.CompileGentests;
 import org.evosuite.gpt.GPTRequest;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestCluster;
@@ -805,6 +806,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * @return
      */
     private boolean mutationDeleteGPT() {
+        CompileGentests.writeToGPTLogFile("#### GPT MUTATION DELETE ####\n");
         // Nothing to delete
         if (test.isEmpty()) {
             return false;
@@ -842,6 +844,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * @return
      */
     private boolean mutationChangeGPT() {
+        CompileGentests.writeToGPTLogFile("#### GPT MUTATION CHANGE ####\n");
         boolean changed = false;
         // Get last valid statement for changing
         int lastMutatableStatement = getLastMutatableStatement();
@@ -889,6 +892,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * @return
      */
     private boolean mutationInsertGPT() {
+        CompileGentests.writeToGPTLogFile("#### GPT MUTATION INSERT ####\n");
         boolean changed = false;
         TestFactory testFactory = TestFactory.getInstance();
         // Prompt GPT

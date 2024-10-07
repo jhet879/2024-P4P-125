@@ -118,45 +118,58 @@ public class CompileGentests {
         }
     }
 
-    public static boolean verifyCompilation(String cutClassPath, String className, String outputDir) throws ClassNotFoundException, MalformedURLException {
-        // Modifify the links to the jar paths if it is a system test
-        if (Properties.IS_RUNNING_A_SYSTEM_TEST && first_use){
-            junit_path = "../"+junit_path;
-            hamcrest_path = "../"+hamcrest_path;
-            tests_class_path = "../"+tests_class_path;
-            first_use = false;
-        }
+    public static boolean verifyCompilation(String className, String outputDir) {
         // Get the Java compiler
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         // Prepare a writer to capture compiler output
         StringWriter writer = new StringWriter();
+        // Diagnostic listener to capture errors
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         // Prepare output path for compiler
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
         try {
-            fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(tests_class_path)));
+            fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(Properties.ML_TESTS_DIR)));
         } catch (IOException e) {
-            System.out.println("Failed to set output directory: " + e.getMessage());
+            writeToGPTLogFile("Failed to set output directory: " + e.getMessage());
             return false;
         }
+        String filteredCP = (Properties.CP).replace("../", "PPP");
         // Set classpath
-        String testClassPath = cutClassPath+";"+junit_path+";"+hamcrest_path;
+        String testClassPath = System.getProperty("user.dir") + File.separator + junit_path + File.pathSeparator +
+                System.getProperty("user.dir") + File.separator + hamcrest_path + File.pathSeparator +
+                System.getProperty("user.dir") + File.separator + (filteredCP.replace("./", System.getProperty("user.dir") + File.separator).replace("PPP", "../"));
         // Prepare the compilation task with the classpath
         Iterable<String> options = Arrays.asList("-classpath", testClassPath);
-        JavaCompiler.CompilationTask task = compiler.getTask(writer, fileManager, null, options, null,
-                Arrays.asList(new JavaSourceFromString(className, outputDir)));
+        writeToGPTLogFile("Compiler classpath: " + testClassPath + "\n");
+        writeToGPTLogFile("user.dir: " + System.getProperty("user.dir") + "\n");
+        writeToGPTLogFile("CP: " + Properties.CP + "\n");
+        writeToGPTLogFile("Class prefix: " + Properties.CLASS_PREFIX + "\n");
+        writeToGPTLogFile("Compiler options: " + options + "\n");
+
+        // Get the compilation units (i.e., the files to compile)
+        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromStrings(Arrays.asList(outputDir + File.separator + className + ".java"));
+
+//        JavaCompiler.CompilationTask task = compiler.getTask(writer, fileManager, diagnostics, options, null,
+//                Arrays.asList(new JavaSourceFromString(className, outputDir)));
+        JavaCompiler.CompilationTask task = compiler.getTask(writer, fileManager, diagnostics, options, null, compilationUnits);
         // Compile the source code
         boolean success = task.call();
         if (success) {
+            writeToGPTLogFile("GPT NR-TEST COMPILATION: SUCCESS\n");
             return true;
         } else {
             // Print compiler errors
-            System.out.println("Compilation failed:");
+            writeToGPTLogFile("GPT NR-TEST COMPILATION: FAILED\n");
+            for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+                writeToGPTLogFile("Error on line " + diagnostic.getLineNumber() + " in " + diagnostic.getSource().getName());
+                writeToGPTLogFile(diagnostic.getMessage(null));
+            }
             //System.out.println(writer.toString());
             return false;
         }
     }
 
-    private static void writeToGPTLogFile(String msg) {
+    public static void writeToGPTLogFile(String msg) {
         try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
             fileWriter.write(msg);
         } catch (IOException ignored) {
@@ -168,8 +181,8 @@ public class CompileGentests {
         Path path = Paths.get("." + File.separatorChar + "ClassTest.java");
         Path path1 = Paths.get("." + File.separatorChar + "ClassTest.class");
         try {
-//            Files.delete(path);
-//            Files.delete(path1);
+            Files.delete(path);
+            Files.delete(path1);
         } catch (Exception ignored) {
         }
     }

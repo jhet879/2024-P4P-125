@@ -6,6 +6,7 @@ import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.metaheuristics.mosa.MOSAllisa;
+import org.evosuite.gpt.CompileGentests;
 import org.evosuite.gpt.GPTRequest;
 import org.evosuite.utils.Randomness;
 
@@ -35,6 +36,7 @@ public class GPTCrossOver<T extends Chromosome<T>> extends CrossOverFunction<T> 
         int pos2 = 0;
         if (Randomness.nextDouble() <= Properties.GPT_CROSSOVER_USAGE_PROBABILITY) {
             MOSAllisa.gptCrossoverAttempts++;
+            CompileGentests.writeToGPTLogFile("#### GPT CROSSOVER ####\n");
             // USE GPT
             try {
                 // Make request to GPT

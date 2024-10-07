@@ -34,6 +34,7 @@ import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.metaheuristics.mosa.MOSAllisa;
 import org.evosuite.ga.operators.crossover.GPTCrossOver;
+import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.gpt.CompileGentests;
 import org.evosuite.gpt.GPTRequest;
@@ -73,9 +74,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.util.*;
@@ -93,8 +96,8 @@ public class TestSuiteGenerator {
 
     public static String testSuiteCopy;
 
-    public static String non_regression_gpt_prompt = "Given a set of classes being tested and their corresponding " +
-            "test cases, perform an analysis on these classes to verify their behavioural correctness and generate " +
+    public static String non_regression_gpt_prompt = "Given a class being tested (note that the class may be cut off) and it's corresponding " +
+            "test cases (note that this may also be cut off), perform an analysis on the class to verify it's behavioural correctness and generate " +
             "the behaviourally correct assertions for each test case.\n" +
             "Some conditions:\n" +
             "1. Review the implementation of each class to ensure it behaves as expected.\n" +
@@ -110,6 +113,10 @@ public class TestSuiteGenerator {
             "Objective: Ensure that the test suite robustly checks and catches any functional discrepancies in the classes under test.\n" +
             "Class Under Test:\njava ```\n%s\n```\n" +
             "JUnit 4 Test Suite:\njava ```\n%s\n```\n";
+
+    public static int nr_attempts = 0;
+    public static int nr_gpt_attempts = 0;
+    public static int valid_nr_gpt_attempts = 0;
 
     private void initializeTargetClass() throws Throwable {
         String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
@@ -251,54 +258,105 @@ public class TestSuiteGenerator {
 
         TestGenerationResult result = null;
         if (ClientProcess.DEFAULT_CLIENT_NAME.equals(ClientProcess.getIdentifier())) {
+            CompileGentests.writeToGPTLogFile("#### POST PROCESSING TESTS ####\n");
             postProcessTests(testCases);
             ClientServices.getInstance().getClientNode().publishPermissionStatistics();
             PermissionStatistics.getInstance().printStatistics(LoggingUtils.getEvoLogger());
 
             // progressMonitor.setCurrentPhase("Writing JUnit test cases");
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing tests to file");
+            CompileGentests.writeToGPTLogFile("#### WRITING TESTS TO FILE ####\n");
             result = writeJUnitTestsAndCreateResult(testCases);
             writeJUnitFailingTests();
         }
         TestCaseExecutor.pullDown();
 
         if (Properties.USE_GPT_NON_REGRESSION) {
+            CompileGentests.writeToGPTLogFile("\n#### TRYING TO GENERATE NON-REGRESSION TESTS ####\n");
+            nr_attempts = 0;
             // USE GPT FOR ADJUSTING THE TEST CASES FOR NON-REGRESSION
             String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + Properties.JUNIT_SUFFIX;
             // Get the class file as a string
             String classAsString = "";
             try {
                 classAsString = new String(Files.readAllBytes(Paths.get(Properties.PATH_TO_CUT)));
+                // Trim class if it is too large
+                if (classAsString.length() > 35000) {
+                    classAsString = classAsString.substring(0, 35000);
+                }
             } catch (IOException e) {
                 System.out.println("IO ERROR");
             }
-            // Make request to GPT
-            String outputName = name+"_NON_REGRESSION";
-            String gptRequest = String.format(non_regression_gpt_prompt, outputName, Properties.PROJECT_PREFIX, classAsString, testSuiteCopy);
-            String initialGPTResponse = GPTRequest.chatGPT(gptRequest, GPTRequest.GPT_4O);
-            System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
-            String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
-            // TODO FIND A BETTER SOLUTION TO OMITTING THE UNWANTED ESCAPE CHARACTERS FROM GPT?
-            formattedResponse = formattedResponse.replace("java\n", "");
-            formattedResponse = formattedResponse.replace("\\r", "\r");
-            formattedResponse = formattedResponse.replace("(\\\"", "(\"");
-            formattedResponse = formattedResponse.replace("\\\")", "\")");
-            formattedResponse = formattedResponse.replace("\\\", ", "\", ");
-            formattedResponse = formattedResponse.replace("\\\";", "\";");
-            formattedResponse = formattedResponse.replace("\\\"\"", "\"\"");
-            formattedResponse = formattedResponse.replace("java\n", "");
-            formattedResponse = formattedResponse.replace(name+" ", name+"_REGRESSION ");
-            String outputPath = Properties.TEST_DIR + "\\" + Properties.PROJECT_PREFIX;
-            GPTRequest.writeGPTtoFile(formattedResponse, outputName, outputPath);
-            // Check if the test compiles
-            boolean non_reg_result = false;
-            try {
-                non_reg_result = CompileGentests.verifyCompilation(Properties.CP, outputName, outputPath);
-            } catch (Exception e) {
-                System.out.println("FAILED TO COMPILE NON REGRESSION TESTS");
+
+            // Trim testsuite copy if it is too large
+            if (testSuiteCopy.length() > 35000) {
+                testSuiteCopy = testSuiteCopy.substring(0, 35000);
             }
-            if (!non_reg_result) {
-                System.out.println("FAILED TO COMPILE NON REGRESSION TESTS");
+
+            String outputName = name+"_NON_REGRESSION";
+            String gptRequest = String.format(non_regression_gpt_prompt, outputName, Properties.CLASS_PREFIX, classAsString, testSuiteCopy);
+            CompileGentests.writeToGPTLogFile("NR-PROMPT REQUEST LENGTH: " + gptRequest.length() + "\n");
+            boolean non_reg_result = false;
+            String outputPath = Properties.ML_TESTS_DIR + File.separator + ((Properties.CLASS_PREFIX).replace(".", File.separator));
+            CompileGentests.writeToGPTLogFile("PREFIX FROM TESTSUITE GEN: " + Properties.CLASS_PREFIX + "\n");
+            CompileGentests.writeToGPTLogFile("REPLACED: " + ((Properties.CLASS_PREFIX).replace(".", File.separator)) + "\n");
+            CompileGentests.writeToGPTLogFile("OUTPUT DIR: " + outputPath + "\n");
+            CompileGentests.writeToGPTLogFile("HERE3");
+            // Make request to GPT
+            while ((!non_reg_result) && (nr_attempts < 10)) {
+                GlobalTimeStoppingCondition.forceReset();
+                nr_attempts++;
+                CompileGentests.writeToGPTLogFile("TRYING TO MAKE NON REGRESSION TESTS: " + nr_attempts + "\n");
+                int gpt_fail_counter = 0;
+                String initialGPTResponse = "FAIL";
+                int delay = 0;
+                // Make 3 attempts at calling GPT
+                while (gpt_fail_counter < 3) {
+                    // Make call to GPT
+                    initialGPTResponse = GPTRequest.chatGPT(gptRequest, GPTRequest.GPT_4O);
+                    nr_gpt_attempts++;
+                    if (!initialGPTResponse.equals("FAIL")){
+                        valid_nr_gpt_attempts++;
+                        break;
+                    }
+                    gpt_fail_counter++;
+                    delay = 5000*gpt_fail_counter;
+                    try {
+                        Thread.sleep(delay);
+                    } catch (Exception ignored) {
+                    }
+                } if (initialGPTResponse.equals("FAIL")) {
+                    CompileGentests.writeToGPTLogFile("EXCEEDED GPT REQUEST ATTEMPTS\n");
+                    break;
+                }
+                System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
+                String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+                // TODO FIND A BETTER SOLUTION TO OMITTING THE UNWANTED ESCAPE CHARACTERS FROM GPT?
+                formattedResponse = formattedResponse.replace("java\n", "");
+                formattedResponse = formattedResponse.replace("\\r", "\r");
+                formattedResponse = formattedResponse.replace("(\\\"", "(\"");
+                formattedResponse = formattedResponse.replace("\\\")", "\")");
+                formattedResponse = formattedResponse.replace("\\\", ", "\", ");
+                formattedResponse = formattedResponse.replace("\\\";", "\";");
+                formattedResponse = formattedResponse.replace("\\\"\"", "\"\"");
+                GPTRequest.writeGPTtoFile(formattedResponse, outputName, outputPath);
+                // Check if the test compiles
+                non_reg_result = CompileGentests.verifyCompilation(outputName, outputPath);
+                if (!non_reg_result) {
+                    CompileGentests.writeToGPTLogFile("FAILED TO COMPILE NON REGRESSION TESTS, retrying...\n");
+                }
+            }
+
+            Path filepath1 = Paths.get(Properties.ML_REPORTS_DIR + File.separator + "report.txt");
+            // Open or create the file, and append to its contents
+            try (FileWriter fileWriter = new FileWriter(filepath1.toString(), true)) {
+                if (Properties.USE_GPT_NON_REGRESSION) {
+                    fileWriter.write("GPT NON-REGRESSION\n");
+                    fileWriter.write("  - Full Attempts: " + nr_attempts + "\n");
+                    fileWriter.write("  - GPT Attempts: " + valid_nr_gpt_attempts +"/" + nr_gpt_attempts + "\n\n");
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
 

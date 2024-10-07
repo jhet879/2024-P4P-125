@@ -82,7 +82,7 @@ public class GPTRequest {
     }
 
     private static void writeToGPTLogFile(String msg) {
-        try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt", true)) {
+        try (FileWriter fileWriter = new FileWriter(Properties.ML_REPORTS_DIR + File.separator + "GPT_LOG.txt", true)) {
             fileWriter.write(msg);
         } catch (IOException ignored) {
         }
@@ -98,8 +98,14 @@ public class GPTRequest {
     }
 
     public static String get_code_only(String gptReponse){
+        String formattedResponse = gptReponse.replace("\\r", "\r");
+        formattedResponse = formattedResponse.replace("(\\\"", "(\"");
+        formattedResponse = formattedResponse.replace("\\\")", "\")");
+        formattedResponse = formattedResponse.replace("\\\", ", "\", ");
+        formattedResponse = formattedResponse.replace("\\\";", "\";");
+        formattedResponse = formattedResponse.replace("\\\"\"", "\"\"");
         // Replace double newlines with single newlines
-        String formattedResponse = gptReponse.replace("\\n", "\n");
+        formattedResponse = gptReponse.replace("\\n", "\n");
         String Delimiter = "```";
 
         int startIndex = formattedResponse.indexOf(Delimiter);
@@ -126,7 +132,11 @@ public class GPTRequest {
     }
 
     public static void writeGPTtoFile(String gptReponse, String fileName, String outputPath){
-        try (PrintWriter out = new PrintWriter(outputPath + File.separatorChar + fileName + ".java")) {
+        File outputDirFile = new File(outputPath);
+        if (!outputDirFile.exists()) {
+            outputDirFile.mkdirs();
+        }
+        try (PrintWriter out = new PrintWriter(outputPath + File.separator + fileName + ".java")) {
             out.println(gptReponse);
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);

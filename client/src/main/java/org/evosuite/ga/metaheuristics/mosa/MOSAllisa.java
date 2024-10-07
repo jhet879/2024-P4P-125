@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga.metaheuristics.mosa;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
@@ -42,11 +43,13 @@ import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalTime;
 import java.util.*;
 
 import org.evosuite.gpt.*;
@@ -72,14 +75,14 @@ public class MOSAllisa extends AbstractMOSA {
     public static int successfulCODAMOSACarvingCalls = 0;
     public static int totalGPTCarvingCalls = 0;
     public static int successfulGPTCarvingCalls = 0;
-    public int gptTestsAddedToOffSpringPop = 0;
-    public int totalGPTTestsAddedToSortedPop = 0;
+    public static int gptTestsAddedToOffSpringPop = 0;
     public static int totalCrossoverCalls = 0;
     public static int succesfulGPTCrossovers = 0;
     public static int gptCrossoverAttempts = 0;
     public static int codamosaCalls = 0;
     public static int GPTInitialPopRetries = 0;
     public static int GPTInitialPopCarved = 0;
+    public static int stat_iterations = 0;
 
     static String algo_test_gen_prompt = "Given the Java class under test (note that the class may be cut off) and lines " +
             " of the class where test goals have not been met:\n" +
@@ -344,26 +347,6 @@ public class MOSAllisa extends AbstractMOSA {
     }
 
     private List<TestCase> invokeGPT(Set<TestFitnessFunction> goals, Boolean isForInitialPop) {
-        this.resetStoppingConditions();
-        // Create logging file
-        Path directory = Paths.get(Properties.ML_REPORTS_DIR);
-        Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/GPT_LOG.txt");
-        // Ensure the directory exists
-        if (!Files.exists(directory)) {
-            try {
-                Files.createDirectories(directory);
-                Files.createFile(filepath);
-                first_entry = false;
-            } catch (Exception ignored) {
-            }
-        } else if (first_entry) {
-            try {
-                Files.delete(filepath);
-                first_entry = false;
-            } catch (IOException ignored) {
-            }
-        }
-
         List<TestCase> carvedTestCases = new ArrayList<>();
 
         // Get the class as a string
@@ -402,12 +385,14 @@ public class MOSAllisa extends AbstractMOSA {
             gptString = String.format(algo_test_gen_prompt, Properties.CP, Properties.TARGET_CLASS,classAsString, fitnessFuncs);
         }
         int carving_attempt_count = 0;
-        while (carving_attempt_count < 5) {
-            totalCODAMOSACarvingCalls++;
+        while (carving_attempt_count < 3) {
+            if (!isForInitialPop) {
+                totalCODAMOSACarvingCalls++;
+            }
             int gpt_fail_counter = 0;
-            int delay = 0;
+            int delay = 30000;
             String initialGPTResponse = "";
-            // Make 5 attempts at calling GPT
+            // Make 3 attempts at calling GPT
             while (gpt_fail_counter < 3) {
                 // Make call to GPT
                 initialGPTResponse = GPTRequest.chatGPT(gptString, GPTRequest.GPT_4O);
@@ -416,7 +401,6 @@ public class MOSAllisa extends AbstractMOSA {
                     break;
                 }
                 gpt_fail_counter++;
-                delay = 5000*gpt_fail_counter;
                 try {
                     Thread.sleep(delay);
                 } catch (Exception ignored) {
@@ -555,7 +539,6 @@ public class MOSAllisa extends AbstractMOSA {
             // Create a random parent population P0
             this.generateInitialPopulation(Properties.POPULATION);
         } else {
-            Properties.SEARCH_BUDGET = 3600;
             boolean success = false;
             // Keep trying to generate tests with GPT until it is successful
             while (!success) {
@@ -606,6 +589,25 @@ public class MOSAllisa extends AbstractMOSA {
     public void generateSolution() {
         logger.debug("executing generateSolution function");
 
+        // Create logging file
+        Path directory = Paths.get(Properties.ML_REPORTS_DIR);
+        Path filepath = Paths.get(Properties.ML_REPORTS_DIR + File.separator + "GPT_LOG.txt");
+        // Ensure the directory exists
+        if (!Files.exists(directory)) {
+            try {
+                Files.createDirectories(directory);
+                Files.createFile(filepath);
+                first_entry = false;
+            } catch (Exception ignored) {
+            }
+        } else if (first_entry) {
+            try {
+                Files.delete(filepath);
+                first_entry = false;
+            } catch (IOException ignored) {
+            }
+        }
+
         if (Properties.USE_GPT_CROSSOVER) {
             this.setCrossOverFunction(new GPTCrossOver());
         }
@@ -636,6 +638,9 @@ public class MOSAllisa extends AbstractMOSA {
             this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i), this.goalsManager.getCurrentGoals());
         }
 
+        this.resetStoppingConditions();
+
+        LocalTime currentTime;
         // Evolve the population generation by generation until all gaols have been covered or the
         // search budget has been consumed.
         while (!isFinished() && this.goalsManager.getUncoveredGoals().size() > 0) {
@@ -651,26 +656,30 @@ public class MOSAllisa extends AbstractMOSA {
 //            }
 //            totalGPTTestsAddedToSortedPop += gpt_counter;
 //            System.out.println("GPT GENERATED TESTS IN POPULATION: " + gpt_counter);
+            stat_iterations++;
+            currentTime = LocalTime.now();
+            writeToGPTLogFile("#### NEW EVOLUTION ITERATION -" + currentTime + "- ####\n");
             this.evolve();
             this.notifyIteration();
         }
 
         if (Properties.USE_CODAMOSA || Properties.USE_GPT_MUTATION || Properties.USE_GPT_CROSSOVER ||
                 Properties.USE_GPT_INITIAL_POPULATION || Properties.USE_GPT_NON_REGRESSION) {
-            Path filepath = Paths.get(Properties.ML_REPORTS_DIR + "/report.txt");
+            Path filepath1 = Paths.get(Properties.ML_REPORTS_DIR + File.separator + "report.txt");
             // Ensure the directory exists
-            if (Files.exists(filepath)) {
+            if (Files.exists(filepath1)) {
                 try {
-                    Files.delete(filepath);
+                    Files.delete(filepath1);
                 } catch (Exception ignored) {
                 }
             }
             try {
-                Files.createFile(filepath);
+                Files.createFile(filepath1);
             } catch (Exception ignored) {
             }
+            stat_iterations = currentIteration;
             // Open or create the file, and append to its contents
-            try (FileWriter fileWriter = new FileWriter(filepath.toString(), true)) {
+            try (FileWriter fileWriter = new FileWriter(filepath1.toString(), true)) {
                 fileWriter.write("#### MOSALLISA STATS ####\n\n");
                 fileWriter.write("Iterations: " + currentIteration + "\n");
                 fileWriter.write("Successful GPT Requests (Carving Related): " + successfulGPTCarvingCalls + "/" + totalGPTCarvingCalls + "\n\n");
@@ -700,13 +709,64 @@ public class MOSAllisa extends AbstractMOSA {
                     fileWriter.write("  - Attempts: " + GPTInitialPopRetries + "\n");
                     fileWriter.write("  - Carved Tests: " + GPTInitialPopCarved + "\n\n");
                 }
-                if (Properties.USE_GPT_NON_REGRESSION) {
-                    fileWriter.write("GPT NON-REGRESSION\n");
-                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+
+        try {
+            Map<String, Object> data = new HashMap<>();
+            // COVERAGE METRICS
+            // SUCCESS RATE OF CODAMOSA CALLS
+            if (totalCODAMOSACarvingCalls == 0) {
+                data.put("cm_success", 0);
+            } else {
+                data.put("cm_success", ((double) successfulCODAMOSACarvingCalls / totalCODAMOSACarvingCalls));
+            }
+            // TOTAL CARVED TESTS FOR CODAMOSA
+            data.put("cm_carved", MOSAllisa.gptTestsAddedToOffSpringPop);
+            // TOTAL CARVED TESTS FOR INITIAL POPULATION
+            data.put("init_carved", MOSAllisa.GPTInitialPopCarved);
+            // SUCCESS RATE OF GPT CALLS (CODAMOSA & INITIAL POP)
+            if (MOSAllisa.totalGPTCarvingCalls == 0) {
+                data.put("cm_gpt", 0);
+            } else {
+                data.put("cm_gpt", ((double) successfulGPTCarvingCalls / totalGPTCarvingCalls));
+            }
+            // SUCCESS RATE OF CROSSOVER CALLS
+            if (MOSAllisa.gptCrossoverAttempts == 0) {
+                data.put("crov_success", 0);
+            } else {
+                data.put("crov_success", ((double) succesfulGPTCrossovers / gptCrossoverAttempts));
+            }
+            // SUCESS RATES OF MUTATION CALLS
+            if (TestChromosome.AT_GPTMdelete == 0) {
+                data.put("mut_del_success", 0);
+            } else {
+                data.put("mut_del_success", ((double) TestChromosome.GPTMdelete / TestChromosome.AT_GPTMdelete));
+            }
+            if (TestChromosome.AT_GPTMchange == 0) {
+                data.put("mut_cha_success", 0);
+            } else {
+                data.put("mut_cha_success", ((double) TestChromosome.GPTMchange / TestChromosome.AT_GPTMchange));
+            }
+            if (TestChromosome.AT_GPTMinsert == 0) {
+                data.put("mut_ins_success", 0);
+            } else {
+                data.put("mut_ins_success", ((double) TestChromosome.GPTMinsert / TestChromosome.AT_GPTMinsert));
+            }
+            data.put("iterations", stat_iterations);
+            ObjectMapper mapper = new ObjectMapper();
+//            String jsonString = mapper.writeValueAsString(data);
+//            System.out.println(jsonString);
+            File file = new File(Properties.ML_REPORTS_DIR + File.separator + "mosallisa_stats.json");
+            mapper.writeValue(file, data);
+        } catch (Exception ignored) {
+            CompileGentests.writeToGPTLogFile("Failed to save mosallisa JSON stats file " + ignored);
+        }
+
+        writeToGPTLogFile("#### FINISHED EVOLUTION ####\n");
+        this.resetStoppingConditions();
 
         System.out.println("Iterations: " + this.currentIteration);
 //        System.out.println("Total GPT Tests Added to Offspring Population: " + gptTestsAddedToOffSpringPop);

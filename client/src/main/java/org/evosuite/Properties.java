@@ -1704,6 +1704,8 @@ public class Properties {
     @Parameter(key = "mosallisa_reports_dir", description = "Path to save mosallisa report to")
     public static String ML_REPORTS_DIR = "mosallisa-report";
 
+    @Parameter(key = "mosallisa_tests_dir", description = "Path to save mossallisa genereated non-regression mode tests")
+    public static String ML_TESTS_DIR = "mosallisa-tests";
 
     // Added - fix for @NotNull annotations issue on evo mailing list
 

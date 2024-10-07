@@ -24,6 +24,7 @@ class JavaSourceFromString extends SimpleJavaFileObject {
             e.printStackTrace();
         }
         this.code = content;
+        CompileGentests.writeToGPTLogFile(content);
     }
 
     @Override
