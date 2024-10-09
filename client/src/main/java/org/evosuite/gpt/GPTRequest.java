@@ -122,21 +122,8 @@ public class GPTRequest {
         return formattedResponse.substring(startIndex, endIndex);
     }
 
-    public static void writeGPTtoFile(String gptReponse){
-        String output_file = "ClassTest.java";
-        try (PrintWriter out = new PrintWriter(output_file)) {
-            out.println(gptReponse);
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public static void writeGPTtoFile(String gptReponse, String fileName, String outputPath){
-        File outputDirFile = new File(outputPath);
-        if (!outputDirFile.exists()) {
-            outputDirFile.mkdirs();
-        }
-        try (PrintWriter out = new PrintWriter(outputPath + File.separator + fileName + ".java")) {
+    public static void writeGPTtoFile(String gptReponse, String filename){
+        try (PrintWriter out = new PrintWriter(filename)) {
             out.println(gptReponse);
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);

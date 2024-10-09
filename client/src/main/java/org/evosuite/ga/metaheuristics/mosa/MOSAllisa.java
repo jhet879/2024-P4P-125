@@ -415,11 +415,11 @@ public class MOSAllisa extends AbstractMOSA {
             formattedResponse = GPTRequest.cleanResponse(formattedResponse);
             // TODO DETERMINE IF THIS IS SUFFICIENT
     //        formattedResponse = "import " + Properties.TARGET_CLASS + ";\n" + formattedResponse;
-            GPTRequest.writeGPTtoFile(formattedResponse);
+            GPTRequest.writeGPTtoFile(formattedResponse, "ClassTest.java");
 
             try {
                 // Carve the testcases from the gpt response
-                carvedTestCases = CompileGentests.compileAndCarveTests(Properties.CP);
+                carvedTestCases = CompileGentests.compileAndCarveTests();
                 if (carvedTestCases != null) {
                     if (!carvedTestCases.isEmpty()) {
                         writeToGPTLogFile("CARVING: SUCCESS\n");
@@ -686,7 +686,8 @@ public class MOSAllisa extends AbstractMOSA {
                 if (Properties.USE_CODAMOSA) {
                     fileWriter.write("- CODAMOSA\n");
                     fileWriter.write("  - CODAMOSA Calls: " + codamosaCalls + "\n");
-                    fileWriter.write("  - Successfully Carved: " + successfulCODAMOSACarvingCalls + "/" + totalCODAMOSACarvingCalls + "\n\n");
+                    fileWriter.write("  - Carving Success: " + successfulCODAMOSACarvingCalls + "/" + totalCODAMOSACarvingCalls + "\n");
+                    fileWriter.write("  - Carved Tests: " + gptTestsAddedToOffSpringPop + "\n\n");
                 }
                 if (Properties.USE_GPT_MUTATION) {
                     fileWriter.write("- MUTATION STATS\n");
@@ -724,9 +725,9 @@ public class MOSAllisa extends AbstractMOSA {
                 data.put("cm_success", ((double) successfulCODAMOSACarvingCalls / totalCODAMOSACarvingCalls));
             }
             // TOTAL CARVED TESTS FOR CODAMOSA
-            data.put("cm_carved", MOSAllisa.gptTestsAddedToOffSpringPop);
+            data.put("cm_carved", gptTestsAddedToOffSpringPop);
             // TOTAL CARVED TESTS FOR INITIAL POPULATION
-            data.put("init_carved", MOSAllisa.GPTInitialPopCarved);
+            data.put("init_carved", GPTInitialPopCarved);
             // SUCCESS RATE OF GPT CALLS (CODAMOSA & INITIAL POP)
             if (MOSAllisa.totalGPTCarvingCalls == 0) {
                 data.put("cm_gpt", 0);

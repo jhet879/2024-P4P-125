@@ -20,16 +20,8 @@ public class CompileGentests {
 
     public static String junit_path = "junit-4.12.jar";
     public static String hamcrest_path = "hamcrest-core-1.3.jar";
-    public static String tests_class_path = "target/test-classes";
-    private static boolean first_use = true;
 
-    public static List<TestCase> compileAndCarveTests(String cutClassPath) {
-        // Modifify the links to the jar paths if it is a system test
-        if (Properties.IS_RUNNING_A_SYSTEM_TEST && first_use){
-            tests_class_path = "../"+tests_class_path;
-            first_use = false;
-        }
-
+    public static List<TestCase> compileAndCarveTests() {
         File junit_jar = new File(junit_path);
         File hamcrest_jar = new File(hamcrest_path);
         // Check if the jars are present
@@ -44,10 +36,12 @@ public class CompileGentests {
             writeToGPTLogFile("NO COMPILER AVAILABLE");
             return null;
         }
+
         // Set classpath
         String compilerClassPath = Properties.CP + File.pathSeparator + junit_path + File.pathSeparator + hamcrest_path;
         compilerClassPath = compilerClassPath.replace('/', File.separatorChar);
         compilerClassPath = compilerClassPath.replace(';', File.pathSeparatorChar);
+
         // Prepare the compilation task with the classpath
         Iterable<String> options;
         writeToGPTLogFile("Compiler classpath: " + compilerClassPath + "\n");
@@ -60,9 +54,9 @@ public class CompileGentests {
             outputDirFile.mkdirs();
         }
         StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
-        // Specify the options for the compiler
         options = Arrays.asList("-classpath", compilerClassPath, "-d", Properties.CLASS_PREFIX);
         writeToGPTLogFile("Compiler options: " + options + "\n");
+
         // Get the compilation units (i.e., the files to compile)
         Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromStrings(Arrays.asList("ClassTest.java"));
         // Diagnostic listener to capture errors
@@ -98,7 +92,8 @@ public class CompileGentests {
             List<TestCase> carvedTestCases = factory.getCarvedTestCases();
             // Reset the property
             Properties.skip_fitness_calculation = false;
-            clean_temp_files();
+            deleteFolder("." + File.separator + Properties.CLASS_PREFIX);
+            deleteFile("ClassTest.java");
             if (carvedTestCases != null) {
                 if (carvedTestCases.isEmpty()) {
                     return null;
@@ -108,63 +103,74 @@ public class CompileGentests {
             return carvedTestCases;
         } else {
             // Print compiler errors
-            clean_temp_files();
+            deleteFolder("." + File.separator + Properties.CLASS_PREFIX);
+            deleteFile("ClassTest.java");
             writeToGPTLogFile("GPT TEST COMPILATION: FAILED\n");
             for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-                writeToGPTLogFile("Error on line " + diagnostic.getLineNumber() + " in " + diagnostic.getSource().getName());
-                writeToGPTLogFile(diagnostic.getMessage(null));
+                writeToGPTLogFile("Error on line " + diagnostic.getLineNumber() + " in " + diagnostic.getSource().getName() + "\n");
+                writeToGPTLogFile(diagnostic.getMessage(null) + "\n");
             }
             return null;
         }
     }
 
-    public static boolean verifyCompilation(String className, String outputDir) {
-        // Get the Java compiler
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        // Prepare a writer to capture compiler output
-        StringWriter writer = new StringWriter();
-        // Diagnostic listener to capture errors
-        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-        // Prepare output path for compiler
-        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
-        try {
-            fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(Properties.ML_TESTS_DIR)));
-        } catch (IOException e) {
-            writeToGPTLogFile("Failed to set output directory: " + e.getMessage());
+    public static boolean verifyCompilation(String className) {
+        File junit_jar = new File(junit_path);
+        File hamcrest_jar = new File(hamcrest_path);
+        // Check if the jars are present
+        if (!junit_jar.exists() || !hamcrest_jar.exists()){
+            writeToGPTLogFile("COULD NOT LOCATE DEPENDENCY JARS\n");
             return false;
         }
-        String filteredCP = (Properties.CP).replace("../", "PPP");
+
+        // Get the Java compiler
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            writeToGPTLogFile("NO COMPILER AVAILABLE");
+            return false;
+        }
+
         // Set classpath
-        String testClassPath = System.getProperty("user.dir") + File.separator + junit_path + File.pathSeparator +
-                System.getProperty("user.dir") + File.separator + hamcrest_path + File.pathSeparator +
-                System.getProperty("user.dir") + File.separator + (filteredCP.replace("./", System.getProperty("user.dir") + File.separator).replace("PPP", "../"));
+        String compilerClassPath = Properties.CP + File.pathSeparator + junit_path + File.pathSeparator + hamcrest_path;
+        compilerClassPath = compilerClassPath.replace('/', File.separatorChar);
+        compilerClassPath = compilerClassPath.replace(';', File.pathSeparatorChar);
         // Prepare the compilation task with the classpath
-        Iterable<String> options = Arrays.asList("-classpath", testClassPath);
-        writeToGPTLogFile("Compiler classpath: " + testClassPath + "\n");
+        Iterable<String> options;
+        writeToGPTLogFile("Compiler classpath: " + compilerClassPath + "\n");
         writeToGPTLogFile("user.dir: " + System.getProperty("user.dir") + "\n");
-        writeToGPTLogFile("CP: " + Properties.CP + "\n");
         writeToGPTLogFile("Class prefix: " + Properties.CLASS_PREFIX + "\n");
+
+        // Set output dir for compiler
+        File outputDirFile = new File("." + File.separator + Properties.ML_TESTS_DIR);
+        if (!outputDirFile.exists()) {
+            outputDirFile.mkdirs();
+        }
+        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+        options = Arrays.asList("-classpath", compilerClassPath, "-d", "." + File.separator + Properties.ML_TESTS_DIR);
         writeToGPTLogFile("Compiler options: " + options + "\n");
 
         // Get the compilation units (i.e., the files to compile)
-        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromStrings(Arrays.asList(outputDir + File.separator + className + ".java"));
-
-//        JavaCompiler.CompilationTask task = compiler.getTask(writer, fileManager, diagnostics, options, null,
-//                Arrays.asList(new JavaSourceFromString(className, outputDir)));
-        JavaCompiler.CompilationTask task = compiler.getTask(writer, fileManager, diagnostics, options, null, compilationUnits);
-        // Compile the source code
+        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromStrings(Arrays.asList(className));
+        // Diagnostic listener to capture errors
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+        // Compile the file with the classpath
+        JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, options, null, compilationUnits);
+        // Compile the code
         boolean success = task.call();
+
+        // Carve tests if compilation was successful
         if (success) {
-            writeToGPTLogFile("GPT NR-TEST COMPILATION: SUCCESS\n");
+            writeToGPTLogFile("GPT NON-REG TEST COMPILATION: SUCESS\n");
             return true;
         } else {
             // Print compiler errors
-            writeToGPTLogFile("GPT NR-TEST COMPILATION: FAILED\n");
+            deleteFolder("." + File.separator + Properties.ML_TESTS_DIR);
+            deleteFile(className);
+            writeToGPTLogFile("GPT NON-REG TEST COMPILATION: FAILED\n");
             for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-                writeToGPTLogFile("Error on line " + diagnostic.getLineNumber() + " in " + diagnostic.getSource().getName());
-                writeToGPTLogFile(diagnostic.getMessage(null));
+                writeToGPTLogFile("Error on line " + diagnostic.getLineNumber() + " in " + diagnostic.getSource().getName() + "\n");
+                writeToGPTLogFile(diagnostic.getMessage(null) + "\n");
             }
-            //System.out.println(writer.toString());
             return false;
         }
     }
@@ -176,14 +182,28 @@ public class CompileGentests {
         }
     }
 
-    private static void clean_temp_files() {
-        // Delete generated class files
-        Path path = Paths.get("." + File.separatorChar + "ClassTest.java");
-        Path path1 = Paths.get("." + File.separatorChar + "ClassTest.class");
+    private static void deleteFile(String file) {
+        Path path = Paths.get(file);
         try {
             Files.delete(path);
-            Files.delete(path1);
         } catch (Exception ignored) {
+            writeToGPTLogFile("Failed to delete the gpt generated source file\n");
+        }
+    }
+
+    public static void deleteFolder(String dir) {
+        Path path = Paths.get(dir);
+        try {
+            Files.walk(path).sorted((a, b) -> b.compareTo(a)).forEach(p -> {
+                try {
+                    Files.delete(p);
+                } catch (Exception ignored) {
+                    writeToGPTLogFile("Failed to delete carving compilation dir\n");
+                }
+                writeToGPTLogFile("Deleted\n");
+            });
+        } catch (Exception ignored) {
+            writeToGPTLogFile("Failed to delete carving compilation dir\n");
         }
     }
 }

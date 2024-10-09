@@ -339,9 +339,9 @@ public class TestSuiteGenerator {
                 formattedResponse = formattedResponse.replace("\\\", ", "\", ");
                 formattedResponse = formattedResponse.replace("\\\";", "\";");
                 formattedResponse = formattedResponse.replace("\\\"\"", "\"\"");
-                GPTRequest.writeGPTtoFile(formattedResponse, outputName, outputPath);
+                GPTRequest.writeGPTtoFile(formattedResponse, outputName+".java");
                 // Check if the test compiles
-                non_reg_result = CompileGentests.verifyCompilation(outputName, outputPath);
+                non_reg_result = CompileGentests.verifyCompilation(outputName+".java");
                 if (!non_reg_result) {
                     CompileGentests.writeToGPTLogFile("FAILED TO COMPILE NON REGRESSION TESTS, retrying...\n");
                 }
