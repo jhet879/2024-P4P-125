@@ -145,6 +145,50 @@ public class RandomInsertion implements InsertionStrategy {
         }
     }
 
+    public boolean insertRandomStatementAtPos(TestCase test, int[] positionTypePairs, int lastPosition) {
+        int position = positionTypePairs[0];
+        int type = positionTypePairs[1];
+
+        // CASE FOR INSERTING RANDOM CALL ON UUT
+        if (type == 1) {
+            boolean result = TestFactory.getInstance().insertRandomCall(test, position);
+            return result;
+        }
+        // CASE FOR INSERTING RANDOM CALL ON ENVIRONMENT
+        else if (type == 2) {
+            boolean result = TestFactory.getInstance().insertRandomCallOnEnvironmentAtPos(test, position);
+            return result;
+        }
+        // CASE FOR INSERTING RANDOM VARIABLE FOR CALL
+        else if (type == 3) {
+            boolean result = false;
+            VariableReference var = selectRandomVariableForCall(test, lastPosition);
+            if (var != null) {
+                // find the last position where the selected variable is used in the test case
+                int lastUsage = test.getReferences(var).stream()
+                        .mapToInt(VariableReference::getStPosition)
+                        .max().orElse(var.getStPosition());
+
+                if (lastUsage > var.getStPosition() + 1) {
+                    // If there is more than 1 statement where it is used, we randomly choose a position
+                    position = Randomness.nextInt(var.getStPosition() + 1, // call has to be after the object is created
+                            lastUsage                // but before the last usage
+                    );
+                } else if (lastUsage == var.getStPosition()) {
+                    // The variable isn't used
+                    position = lastUsage + 1;
+                } else {
+                    // The variable is used at only one position, we insert at exactly that position
+                    position = lastUsage;
+                }
+                result = TestFactory.getInstance().insertRandomCallOnObjectAt(test, var, position);
+            }
+            return result;
+        } else {
+            return false;
+        }
+    }
+
     /**
      * In the given test case {@code test}, returns a random variable up to the specified {@code
      * position} for a subsequent call. If the test case is empty or the position is {@code 0},

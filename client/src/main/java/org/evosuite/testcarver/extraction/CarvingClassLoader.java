@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcarver.extraction;
 
+import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.instrumentation.JSRInlinerClassVisitor;
@@ -30,8 +31,11 @@ import org.objectweb.asm.tree.ClassNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.InputStream;
 import java.lang.reflect.Modifier;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -85,8 +89,14 @@ public class CarvingClassLoader extends ClassLoader {
 
         try {
             String className = fullyQualifiedTargetClass.replace('.', '/');
-
-            InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(className);
+            InputStream is;
+            if (fullyQualifiedTargetClass.contains("ClassTest")) {
+                File classesDir = new File(Properties.CLASS_PREFIX);
+                URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { classesDir.toURI().toURL() });
+                is = classLoader.getResourceAsStream("ClassTest.class");
+            } else {
+                is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT()).getClassAsStream(className);
+            }
             if (is == null) {
                 throw new ClassNotFoundException("Class '" + className + ".class"
                         + "' should be in target project, but could not be found!");

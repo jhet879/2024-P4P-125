@@ -20,6 +20,7 @@
 
 package org.evosuite;
 
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
@@ -198,6 +199,65 @@ public class EvoSuite {
                     throw new Error("Invalid value for GPT key: " + e.getMessage());
                 }
             }
+
+            if (line.hasOption("use_codamosa")){
+                try {
+                    Properties.getInstance().setValue("use_codamosa", true);
+                }
+                catch (Exception e) {
+                    throw new Error("Invalid value for use_codamosa: " + e.getMessage());
+                }
+            }
+
+            if (line.hasOption("use_gpt_mutation")){
+                try {
+                    Properties.getInstance().setValue("use_gpt_mutation", true);
+                }
+                catch (Exception e) {
+                    throw new Error("Invalid value for use_gpt_mutation: " + e.getMessage());
+                }
+            }
+
+            if (line.hasOption("use_gpt_crossover")){
+                try {
+                    Properties.getInstance().setValue("use_gpt_crossover", true);
+                }
+                catch (Exception e) {
+                    throw new Error("Invalid value for use_gpt_crossover: " + e.getMessage());
+                }
+            }
+
+            if (line.hasOption("use_gpt_initial_pop")){
+                try {
+                    Properties.getInstance().setValue("use_gpt_initial_pop", true);
+                }
+                catch (Exception e) {
+                    throw new Error("Invalid value for use_gpt_initial_pop: " + e.getMessage());
+                }
+            }
+
+            if (line.hasOption("use_gpt_non_regression")){
+                try {
+                    Properties.getInstance().setValue("use_gpt_non_regression", true);
+                }
+                catch (Exception e) {
+                    throw new Error("Invalid value for use_gpt_non_regression: " + e.getMessage());
+                }
+            }
+
+            if (line.hasOption("path_to_cut")) {
+                try {
+                    File file = new File(line.getOptionValue("path_to_cut"));
+                    if (!file.exists()) {
+                        throw new IOException("File does not exist");
+                    } else {
+                        Properties.getInstance().setValue("path_to_cut", line.getOptionValue("path_to_cut"));
+                    }
+                } catch (Exception e) {
+                    throw new Error("Invalid value for class under test path: " + e.getMessage());
+                }
+            }
+
 
             if (line.hasOption("parallel")) {
                 String[] values = line.getOptionValues("parallel");

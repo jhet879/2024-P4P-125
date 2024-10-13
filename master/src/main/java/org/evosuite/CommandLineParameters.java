@@ -133,6 +133,12 @@ public class CommandLineParameters {
         Option property = OptionBuilder.withArgName("property=value").hasArgs(2).withValueSeparator().withDescription("use value for given property").create("D");
 
         Option gpt_key = new Option("gpt_key", true,"GPT API Key used for making requests to GPT");
+        Option use_codamosa = new Option("use_codamosa", false,"Needed to enable CODAMOSA in MOSALLISA");
+        Option use_gpt_mutation = new Option("use_gpt_mutation", false,"Need to enable the use of GPT for gpt mutations in MOSALLISA");
+        Option use_gpt_crossover = new Option("use_gpt_crossover", false,"Needed to enable the use of gpt for crossover in MOSALLISA");
+        Option use_gpt_initial_pop = new Option("use_gpt_initial_pop", false,"Needed to enable the use of gpt for the initial population in MOSALLISA");
+        Option use_gpt_non_regression = new Option("use_gpt_non_regression", false,"Needed to enable the use of gpt for non-regression mode in MOSALLISA");
+        Option path_to_cut = new Option("path_to_cut", true,"Path to class under test Java file");
 
         for (Option option : generateOptions) {
             options.addOption(option);
@@ -163,6 +169,12 @@ public class CommandLineParameters {
         options.addOption(startedByCtg);
         options.addOption(parallel);
         options.addOption(gpt_key);
+        options.addOption(use_codamosa);
+        options.addOption(use_gpt_mutation);
+        options.addOption(use_gpt_crossover);
+        options.addOption(use_gpt_initial_pop);
+        options.addOption(use_gpt_non_regression);
+        options.addOption(path_to_cut);
 
         return options;
     }

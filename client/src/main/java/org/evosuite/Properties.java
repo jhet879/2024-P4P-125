@@ -317,7 +317,7 @@ public class Properties {
         // mu-lambda
         ONE_PLUS_LAMBDA_LAMBDA_GA, ONE_PLUS_ONE_EA, MU_PLUS_LAMBDA_EA, MU_LAMBDA_EA,
         // many-objective algorithms
-        MOSA, DYNAMOSA, LIPS, MIO, MOSALISA,
+        MOSA, DYNAMOSA, LIPS, MIO, MOSALLISA,
         // multiple-objective optimisation algorithms
         NSGAII, SPEA2
     }
@@ -352,7 +352,7 @@ public class Properties {
     public static boolean MAP_ELITES_IGNORE_FEATURES = false;
 
     @Parameter(key = "algorithm", group = "Search Algorithm", description = "Search algorithm")
-    public static Algorithm ALGORITHM = Algorithm.MOSALISA;
+    public static Algorithm ALGORITHM = Algorithm.MOSALLISA;
 
     /**
      * Different models of neighbourhoods in the Cellular GA
@@ -1672,6 +1672,40 @@ public class Properties {
 
     @Parameter(key = "gpt_key", description = "Your GPT API Token. Required for making requests to GPT")
     public static String GPT_KEY = "";
+
+    // Used to skip fitness calculation in JUnitTestCarvedChromosomeFactory due to it tampering with the
+    // goals of the current evosuite run.
+    public static boolean skip_fitness_calculation = false;
+
+    // Used to define the probability that gpt is used for performing mutation operations
+    public static double GPT_MUTATION_USAGE_PROBABILITY = 0.2;
+
+    // Used to define the probability that gpt is used for performing crosover operations
+    public static double GPT_CROSSOVER_USAGE_PROBABILITY = 0.4;
+
+    @Parameter(key = "use_codamosa", description = "Disable/Enable the usage of the CODAMOSA implementation in MOSALLISA")
+    public static boolean USE_CODAMOSA = false;
+
+    @Parameter(key = "use_gpt_mutation", description = "Disable/Enable the usage of the gpt for mutation in MOSALLISA")
+    public static boolean USE_GPT_MUTATION = false;
+
+    @Parameter(key = "use_gpt_crossover", description = "Disable/Enable the usage of the gpt for crossover in MOSALLISA")
+    public static boolean USE_GPT_CROSSOVER = false;
+
+    @Parameter(key = "use_gpt_initial_pop", description = "Disable/Enable the usage of the gpt for generating the initial population in MOSALLISA")
+    public static boolean USE_GPT_INITIAL_POPULATION = false;
+
+    @Parameter(key = "use_gpt_non_regression", description = "Disable/Enable the usage of the gpt for generating non-regression mode testing MOSALLISA")
+    public static boolean USE_GPT_NON_REGRESSION = false;
+
+    @Parameter(key = "path_to_cut", description = "Path to class under test Java file")
+    public static String PATH_TO_CUT = null;
+
+    @Parameter(key = "mosallisa_reports_dir", description = "Path to save mosallisa report to")
+    public static String ML_REPORTS_DIR = "mosallisa-report";
+
+    @Parameter(key = "mosallisa_tests_dir", description = "Path to save mossallisa genereated non-regression mode tests")
+    public static String ML_TESTS_DIR = "mosallisa-tests";
 
     // Added - fix for @NotNull annotations issue on evo mailing list
 

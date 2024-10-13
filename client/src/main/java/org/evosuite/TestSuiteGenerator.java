@@ -19,6 +19,7 @@
  */
 package org.evosuite;
 
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.evosuite.Properties.AssertionStrategy;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.Properties.TestFactory;
@@ -31,7 +32,12 @@ import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.coverage.dataflow.DefUseCoverageSuiteFitness;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.mosa.MOSAllisa;
+import org.evosuite.ga.operators.crossover.GPTCrossOver;
+import org.evosuite.ga.stoppingconditions.GlobalTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.gpt.CompileGentests;
+import org.evosuite.gpt.GPTRequest;
 import org.evosuite.junit.JUnitAnalyzer;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.result.TestGenerationResult;
@@ -68,7 +74,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.util.*;
 
@@ -83,6 +94,29 @@ public class TestSuiteGenerator {
     private static final String FOR_NAME = "forName";
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteGenerator.class);
 
+    public static String testSuiteCopy;
+
+    public static String non_regression_gpt_prompt = "Given a class being tested (note that the class may be cut off) and it's corresponding " +
+            "test cases (note that this may also be cut off), perform an analysis on the class to verify it's behavioural correctness and generate " +
+            "the behaviourally correct assertions for each test case.\n" +
+            "Some conditions:\n" +
+            "1. Review the implementation of each class to ensure it behaves as expected.\n" +
+            "2. If behaviour in the classes is found to be incorrect, modify the existing tests\n" +
+            "3. Do NOT add new tests, only modify the existing tests\n" +
+            "4. Only generate the assertions, do NOT modify anything other than the tests, leave EVERYTHING else alone.\n" +
+            "5. Format it into a JUNIT 4 test suite that can be compiled.\n" +
+            "6. The adjustments in the test suite should be capable of detecting the identified behavioural errors when the test suite is executed.\n" +
+            "7. No explanation is required, just return the test suite with assertions.\n" +
+            "8. Name the class: %s.\n" +
+            "9. Put the class into the package: %s\n" +
+            "10. Use org.junit.Test and org.junit.Assert.* for the JUNIT imports.\n" +
+            "Objective: Ensure that the test suite robustly checks and catches any functional discrepancies in the classes under test.\n" +
+            "Class Under Test:\njava ```\n%s\n```\n" +
+            "JUnit 4 Test Suite:\njava ```\n%s\n```\n";
+
+    public static int nr_attempts = 0;
+    public static int nr_gpt_attempts = 0;
+    public static int valid_nr_gpt_attempts = 0;
 
     private void initializeTargetClass() throws Throwable {
         String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
@@ -113,6 +147,7 @@ public class TestSuiteGenerator {
         // the CUT to be loaded first
         DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, Arrays.asList(cp.split(File.pathSeparator)));
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Finished analyzing classpath");
+        Properties.CP = cp;
     }
 
     /**
@@ -121,7 +156,15 @@ public class TestSuiteGenerator {
      * @return a {@link java.lang.String} object.
      */
     public TestGenerationResult generateTestSuite() {
-
+        LoggingUtils.getEvoLogger().info("* ALGORITHM CONFIG");
+        LoggingUtils.getEvoLogger().info("  - ALGORITHM: " + Properties.ALGORITHM);
+        LoggingUtils.getEvoLogger().info("  - STRATEGY: " + Properties.STRATEGY);
+        LoggingUtils.getEvoLogger().info("* MOSALLISA CONFIG");
+        LoggingUtils.getEvoLogger().info("  - CODAMOSA: " + Properties.USE_CODAMOSA);
+        LoggingUtils.getEvoLogger().info("  - GPT Mutation: " + Properties.USE_GPT_MUTATION);
+        LoggingUtils.getEvoLogger().info("  - GPT Crossover: " + Properties.USE_GPT_CROSSOVER);
+        LoggingUtils.getEvoLogger().info("  - GPT Initial Population: " + Properties.USE_GPT_INITIAL_POPULATION);
+        LoggingUtils.getEvoLogger().info("  - GPT Non-Regression: " + Properties.USE_GPT_NON_REGRESSION);
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Analyzing classpath: ");
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.INITIALIZATION);
@@ -215,16 +258,108 @@ public class TestSuiteGenerator {
 
         TestGenerationResult result = null;
         if (ClientProcess.DEFAULT_CLIENT_NAME.equals(ClientProcess.getIdentifier())) {
+            CompileGentests.writeToGPTLogFile("#### POST PROCESSING TESTS ####\n");
             postProcessTests(testCases);
             ClientServices.getInstance().getClientNode().publishPermissionStatistics();
             PermissionStatistics.getInstance().printStatistics(LoggingUtils.getEvoLogger());
 
             // progressMonitor.setCurrentPhase("Writing JUnit test cases");
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing tests to file");
+            CompileGentests.writeToGPTLogFile("#### WRITING TESTS TO FILE ####\n");
             result = writeJUnitTestsAndCreateResult(testCases);
             writeJUnitFailingTests();
         }
         TestCaseExecutor.pullDown();
+
+        if (Properties.USE_GPT_NON_REGRESSION) {
+            CompileGentests.writeToGPTLogFile("\n#### TRYING TO GENERATE NON-REGRESSION TESTS ####\n");
+            nr_attempts = 0;
+            // USE GPT FOR ADJUSTING THE TEST CASES FOR NON-REGRESSION
+            String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1) + Properties.JUNIT_SUFFIX;
+            // Get the class file as a string
+            String classAsString = "";
+            try {
+                classAsString = new String(Files.readAllBytes(Paths.get(Properties.PATH_TO_CUT)));
+                // Trim class if it is too large
+                if (classAsString.length() > 35000) {
+                    classAsString = classAsString.substring(0, 35000);
+                }
+            } catch (IOException e) {
+                System.out.println("IO ERROR");
+            }
+
+            // Trim testsuite copy if it is too large
+            if (testSuiteCopy.length() > 35000) {
+                testSuiteCopy = testSuiteCopy.substring(0, 35000);
+            }
+
+            String outputName = name+"_NON_REGRESSION";
+            String gptRequest = String.format(non_regression_gpt_prompt, outputName, Properties.CLASS_PREFIX, classAsString, testSuiteCopy);
+            CompileGentests.writeToGPTLogFile("NR-PROMPT REQUEST LENGTH: " + gptRequest.length() + "\n");
+            boolean non_reg_result = false;
+            String outputPath = Properties.ML_TESTS_DIR + File.separator + ((Properties.CLASS_PREFIX).replace(".", File.separator));
+            CompileGentests.writeToGPTLogFile("PREFIX FROM TESTSUITE GEN: " + Properties.CLASS_PREFIX + "\n");
+            CompileGentests.writeToGPTLogFile("REPLACED: " + ((Properties.CLASS_PREFIX).replace(".", File.separator)) + "\n");
+            CompileGentests.writeToGPTLogFile("OUTPUT DIR: " + outputPath + "\n");
+            CompileGentests.writeToGPTLogFile("HERE3");
+            // Make request to GPT
+            while ((!non_reg_result) && (nr_attempts < 10)) {
+                GlobalTimeStoppingCondition.forceReset();
+                nr_attempts++;
+                CompileGentests.writeToGPTLogFile("TRYING TO MAKE NON REGRESSION TESTS: " + nr_attempts + "\n");
+                int gpt_fail_counter = 0;
+                String initialGPTResponse = "FAIL";
+                int delay = 0;
+                // Make 3 attempts at calling GPT
+                while (gpt_fail_counter < 3) {
+                    // Make call to GPT
+                    initialGPTResponse = GPTRequest.chatGPT(gptRequest, GPTRequest.GPT_4O);
+                    nr_gpt_attempts++;
+                    if (!initialGPTResponse.equals("FAIL")){
+                        valid_nr_gpt_attempts++;
+                        break;
+                    }
+                    gpt_fail_counter++;
+                    delay = 5000*gpt_fail_counter;
+                    try {
+                        Thread.sleep(delay);
+                    } catch (Exception ignored) {
+                    }
+                } if (initialGPTResponse.equals("FAIL")) {
+                    CompileGentests.writeToGPTLogFile("EXCEEDED GPT REQUEST ATTEMPTS\n");
+                    break;
+                }
+                System.out.println("GPT Unformatted Response:\n" + initialGPTResponse);
+                String formattedResponse = GPTRequest.get_code_only(initialGPTResponse);
+                // TODO FIND A BETTER SOLUTION TO OMITTING THE UNWANTED ESCAPE CHARACTERS FROM GPT?
+                formattedResponse = formattedResponse.replace("java\n", "");
+                formattedResponse = formattedResponse.replace("\\r", "\r");
+                formattedResponse = formattedResponse.replace("(\\\"", "(\"");
+                formattedResponse = formattedResponse.replace("\\\")", "\")");
+                formattedResponse = formattedResponse.replace("\\\", ", "\", ");
+                formattedResponse = formattedResponse.replace("\\\";", "\";");
+                formattedResponse = formattedResponse.replace("\\\"\"", "\"\"");
+                GPTRequest.writeGPTtoFile(formattedResponse, outputName+".java");
+                // Check if the test compiles
+                non_reg_result = CompileGentests.verifyCompilation(outputName+".java");
+                if (!non_reg_result) {
+                    CompileGentests.writeToGPTLogFile("FAILED TO COMPILE NON REGRESSION TESTS, retrying...\n");
+                }
+            }
+
+            Path filepath1 = Paths.get(Properties.ML_REPORTS_DIR + File.separator + "report.txt");
+            // Open or create the file, and append to its contents
+            try (FileWriter fileWriter = new FileWriter(filepath1.toString(), true)) {
+                if (Properties.USE_GPT_NON_REGRESSION) {
+                    fileWriter.write("GPT NON-REGRESSION\n");
+                    fileWriter.write("  - Full Attempts: " + nr_attempts + "\n");
+                    fileWriter.write("  - GPT Attempts: " + valid_nr_gpt_attempts +"/" + nr_gpt_attempts + "\n\n");
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
         /*
          * TODO: when we will have several processes running in parallel, we ll
          * need to handle the gathering of the statistics.
@@ -233,8 +368,16 @@ public class TestSuiteGenerator {
 
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
         LoggingUtils.getEvoLogger().info("");
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
+        LoggingUtils.getEvoLogger().info("");
 
         return result != null ? result : TestGenerationResultBuilder.buildSuccessResult();
+    }
+
+
+    private String extractClassName(String targetClass) {
+        int dotIndex = targetClass.lastIndexOf(".");
+        return targetClass.substring(dotIndex + 1);
     }
 
     /**
@@ -489,6 +632,10 @@ public class TestSuiteGenerator {
             }
         }
 
+        if (Properties.USE_GPT_NON_REGRESSION){
+            testSuiteCopy = testSuite.toString();
+        }
+
         if (Properties.ASSERTIONS) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
@@ -498,6 +645,7 @@ public class TestSuiteGenerator {
                         + "Skipping assertion generation because not enough time is left");
             } else {
                 TestSuiteGeneratorHelper.addAssertions(testSuite);
+
             }
             StatisticsSender.sendIndividualToMaster(testSuite); // FIXME: can we
             // pass the list
