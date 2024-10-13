@@ -821,7 +821,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         TestFactory testFactory = TestFactory.getInstance();
         // Prompt GPT
         String gptString = String.format(mutationDeletePrompt, lastMutableStatement, test.toCode());
-        String initialGPTResponse = GPTRequest.chatGPT(gptString, GPTRequest.GPT_4O_MINI);
+        String initialGPTResponse = GPTRequest.chatGPT(gptString, GPTRequest.GPT_4O);
         // Delete statements according to GPT response
         try {
             ArrayList<Integer> linesToDelete = GPTRequest.extractArrayFromString(initialGPTResponse);
@@ -851,7 +851,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         TestFactory testFactory = TestFactory.getInstance();
         // Prompt GPT
         String gptString = String.format(mutationChangePrompt, lastMutatableStatement, test.toCode());
-        String initialGPTResponse = GPTRequest.chatGPT(gptString, GPTRequest.GPT_4O_MINI);
+        String initialGPTResponse = GPTRequest.chatGPT(gptString, GPTRequest.GPT_4O);
         try {
             // Extract positions to change from gpt response
             ArrayList<Integer> positions = GPTRequest.extractArrayFromString(initialGPTResponse);
@@ -897,7 +897,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         TestFactory testFactory = TestFactory.getInstance();
         // Prompt GPT
         String gptString = String.format(mutationInsertPrompt, test.toCode());
-        String initialGPTResponse = GPTRequest.chatGPT(gptString, GPTRequest.GPT_4O_MINI);
+        String initialGPTResponse = GPTRequest.chatGPT(gptString, GPTRequest.GPT_4O);
         try {
             // Extract positions to insert from gpt response
             ArrayList<int[]> linesToDelete = GPTRequest.extractTuplesFromString(initialGPTResponse);
